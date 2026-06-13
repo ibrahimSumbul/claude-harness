@@ -1,0 +1,26 @@
+{
+  "_comment": "devir hook ağını ~/.claude/settings.json'a ekleyin. Sadece 'hooks' bloğu gösterilmiştir; mevcut ayarlarınızla birleştirin. telemetry-hook vb. devir-dışı hook'lar BURADA YOKTUR (ayrı sistemler).",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/usr/bin/env python3 $HOME/.claude/hooks/devir-autotrigger.py" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/usr/bin/env python3 $HOME/.claude/hooks/devir-precompact.py" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/usr/bin/env python3 $HOME/.claude/hooks/devir-sessionstart.py" }
+        ]
+      }
+    ]
+  }
+}
