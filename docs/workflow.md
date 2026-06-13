@@ -6,6 +6,12 @@ tetikler, arka planda hangi mekanizma ne zaman ve **neden** çalışır. Tüm de
 
 > Mimari gerekçeler ve alternatif değerlendirmeleri: [`../skills/devir/DESIGN.md`](../skills/devir/DESIGN.md).
 
+![devir — kim neyi tetikler, arka planda ne çalışır](diagrams/devir-trigger-flow.svg)
+
+*Tek-bakışta özet: solda kullanıcının manuel tetiklediği yol, sağda otomatik L3 hook ağı.
+Standalone SVG: [`diagrams/devir-trigger-flow.svg`](diagrams/devir-trigger-flow.svg). Aşağıdaki
+Mermaid diyagramlar GitHub'da render olur ve detayı taşır.*
+
 ---
 
 ## 1. Üç katman, tek cümlede
