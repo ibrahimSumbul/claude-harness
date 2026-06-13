@@ -10,7 +10,7 @@ kalıcı katmanlara yazar, temiz bir session'a geçmeyi ve oradan **güvenli dev
 
 ## Neden
 
-Tek bir Claude Code session'ı büyüdükçe (~260k+ token) cevap kalitesi düşmeye başlar.
+Tek bir Claude Code session'ı büyüdükçe (~300k civarı) cevap kalitesi düşmeye başlar; devir bunu **~260k'da**, degradation bölgesine girmeden önce yakalar.
 "Yeni session aç" demek kolay ama **bağlam kaybolur**: nerede kalındığı, neyin denenip
 başarısız olduğu, hangi kararların neden alındığı. `devir` bu state'i üç katmana yazar →
 yeni session sıfırdan değil, **kaldığı yerden** devam eder.
