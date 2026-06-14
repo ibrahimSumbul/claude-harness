@@ -10,7 +10,7 @@ kalıcı katmanlara yazar, temiz bir session'a geçmeyi ve oradan **güvenli dev
 
 ## Neden
 
-Tek bir Claude Code session'ı büyüdükçe (~260k+ token) cevap kalitesi düşmeye başlar.
+Tek bir Claude Code session'ı büyüdükçe (~300k civarı) cevap kalitesi düşmeye başlar; devir bunu **~260k'da**, degradation bölgesine girmeden önce yakalar.
 "Yeni session aç" demek kolay ama **bağlam kaybolur**: nerede kalındığı, neyin denenip
 başarısız olduğu, hangi kararların neden alındığı. `devir` bu state'i üç katmana yazar →
 yeni session sıfırdan değil, **kaldığı yerden** devam eder.
@@ -61,3 +61,4 @@ Bu repo bir **snapshot**'tır; tek kaynak (source of truth) çalışan kurulumdu
 
 - [`docs/workflow.md`](docs/workflow.md) — sistemin tam workflow'u: kullanıcı neyi/ne zaman tetikler, arka planda ne/ne zaman/neden çalışır (diyagramlarla).
 - [`docs/fable-comparison.md`](docs/fable-comparison.md) — bu orchestration yaklaşımının Anthropic Fable ile dürüst, kanıta dayalı karşılaştırması.
+- [`docs/diagrams/`](docs/diagrams/) — standalone SVG şemalar + **diyagram-güncelleme disiplini** ([`docs/diagrams/README.md`](docs/diagrams/README.md)). Skill/hook değiştiğinde diyagramlar da güncellenir; [`tools/check_doc_sync.py`](tools/check_doc_sync.py) sabit-drift'i yakalar.

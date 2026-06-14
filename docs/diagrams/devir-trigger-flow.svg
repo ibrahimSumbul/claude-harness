@@ -1,0 +1,74 @@
+<svg width="100%" viewBox="0 0 680 452" role="img" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <title>devir — kullanıcı tetikleri ve arka plan hook akışı</title>
+  <desc>İki sütunlu akış: solda kullanıcının manuel tetiklediği session/devir yolu (/devir, yeni session, /devir-resume, consume), sağda otomatik L3 hook ağı (autotrigger 260k nudge, precompact dump+draft, sessionstart RESUME inject/banner). Hook'lar advisory; kalıcı katman L1 memory + L2 git not. Kaynak: skills/devir, skills/devir-resume, hooks/devir-*.py, settings.example.json.</desc>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1.5 L8 5 L1 8.5 Z" fill="#73726c"/>
+    </marker>
+    <marker id="ah-amber" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1.5 L8 5 L1 8.5 Z" fill="#BA7517"/>
+    </marker>
+  </defs>
+
+  <text x="20" y="26" font-size="16" font-weight="600" fill="#20201e">devir — kim neyi tetikler, arka planda ne çalışır</text>
+
+  <!-- legend -->
+  <rect x="20" y="40" width="14" height="14" rx="3" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+  <text x="40" y="51" font-size="12" fill="#55554f">kullanıcı (manuel)</text>
+  <rect x="190" y="40" width="14" height="14" rx="3" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
+  <text x="210" y="51" font-size="12" fill="#55554f">L3 hook (otomatik · advisory)</text>
+
+  <!-- column headers -->
+  <text x="200" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">KULLANICI · SESSION</text>
+  <text x="475" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">L3 HOOK AĞI</text>
+
+  <!-- main column (left) -->
+  <rect x="110" y="84" width="180" height="50" rx="8" fill="#F4F2EC" stroke="#B4B2A9" stroke-width="1"/>
+  <text x="200" y="105" font-size="14" font-weight="500" fill="#20201e" text-anchor="middle">Session A</text>
+  <text x="200" y="122" font-size="12" fill="#5f5e5a" text-anchor="middle">context ~260k → büyüyor</text>
+
+  <rect x="110" y="160" width="180" height="50" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+  <text x="200" y="181" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">/devir  (manuel)</text>
+  <text x="200" y="198" font-size="12" fill="#0F6E56" text-anchor="middle">L1+L2 yaz → commit</text>
+
+  <rect x="110" y="236" width="180" height="50" rx="8" fill="#F4F2EC" stroke="#B4B2A9" stroke-width="1"/>
+  <text x="200" y="257" font-size="14" font-weight="500" fill="#20201e" text-anchor="middle">► yeni session</text>
+  <text x="200" y="274" font-size="12" fill="#5f5e5a" text-anchor="middle">fresh context</text>
+
+  <rect x="110" y="312" width="180" height="50" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+  <text x="200" y="333" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">/devir-resume</text>
+  <text x="200" y="350" font-size="12" fill="#0F6E56" text-anchor="middle">staleness + onay</text>
+
+  <rect x="110" y="388" width="180" height="44" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+  <text x="200" y="406" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">consume</text>
+  <text x="200" y="422" font-size="12" fill="#0F6E56" text-anchor="middle">open → consumed</text>
+
+  <!-- right column (hooks) -->
+  <rect x="385" y="112" width="180" height="44" rx="8" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
+  <text x="475" y="130" font-size="14" font-weight="500" fill="#633806" text-anchor="middle">autotrigger</text>
+  <text x="475" y="146" font-size="12" fill="#854F0B" text-anchor="middle">≥260k → nudge</text>
+
+  <rect x="385" y="174" width="180" height="44" rx="8" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
+  <text x="475" y="192" font-size="14" font-weight="500" fill="#633806" text-anchor="middle">precompact</text>
+  <text x="475" y="208" font-size="12" fill="#854F0B" text-anchor="middle">dump + draft</text>
+
+  <rect x="385" y="236" width="180" height="44" rx="8" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
+  <text x="475" y="254" font-size="14" font-weight="500" fill="#633806" text-anchor="middle">sessionstart</text>
+  <text x="475" y="270" font-size="12" fill="#854F0B" text-anchor="middle">RESUME inject / banner</text>
+
+  <!-- main vertical flow -->
+  <line x1="200" y1="134" x2="200" y2="158" stroke="#73726c" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="200" y1="210" x2="200" y2="234" stroke="#73726c" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="200" y1="286" x2="200" y2="310" stroke="#73726c" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="200" y1="362" x2="200" y2="386" stroke="#73726c" stroke-width="1.4" marker-end="url(#ah)"/>
+
+  <!-- session tokens read by autotrigger (condition) -->
+  <line x1="290" y1="110" x2="381" y2="126" stroke="#a8a79f" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#ah)"/>
+  <!-- autotrigger nudges /devir (advisory, dashed amber) -->
+  <line x1="430" y1="156" x2="294" y2="178" stroke="#BA7517" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ah-amber)"/>
+  <text x="356" y="162" font-size="11" font-style="italic" fill="#854F0B" text-anchor="middle">advisory</text>
+  <!-- precompact draft feeds sessionstart -->
+  <line x1="475" y1="218" x2="475" y2="234" stroke="#BA7517" stroke-width="1.5" marker-end="url(#ah-amber)"/>
+  <!-- sessionstart injects into new session -->
+  <line x1="383" y1="256" x2="294" y2="258" stroke="#BA7517" stroke-width="1.5" marker-end="url(#ah-amber)"/>
+</svg>
