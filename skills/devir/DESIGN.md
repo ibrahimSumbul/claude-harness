@@ -3,6 +3,7 @@
 > Bu doc: skill'in **mimarisi**, **paralel-session conflict tasarımı**, **dış-dünya benchmark konumu**
 > ve **evrimi (önceki → şimdiki → geliştirilecek)**. Operasyonel adımlar `SKILL.md`'de; bu doc *neden*'i tutar.
 > Eşlik eden skill: `../devir-resume/SKILL.md` (fresh session'da güvenli devam = handon).
+> Eşlik eden skill: `../devir-land/SKILL.md` (context sınırından ÖNCE biten kapalı dilimi aynı session'da indir = land; bkz. §8).
 
 ---
 
@@ -140,9 +141,37 @@ OpenAI Agents SDK, LangGraph, AutoGen, cote-star/agent-chorus, AICTX.
 
 ---
 
-## 7. Versiyon tablosu
+## 7. `/devir-land` — bitmiş dilimin tümleyeni
+
+`/devir` ile aynı aileden, ama **karşıt yönde** çalışır. İkisi context boundary'nin iki tarafını kapatır:
+
+| | `/devir` | `/devir-land` |
+|---|---|---|
+| Tetik | Yarım iş ~260k sınırına **çarptı** | Kapalı dilim sınırdan **ÖNCE bitti** |
+| Süreklilik | L1 memory + L2 not + handoff bloğu | **YOK** — not yazmaz, memory'ye dokunmaz |
+| Session | **fresh session** aç | **AYNI session**'da kal |
+| Eylem | state'i kalıcı katmana flush | dilimi ilgili PR/branch'e commit + push |
+
+**Neden ayrı skill (not yeniden-kullanım değil):** `/devir`'in özü *gelecek session için yüksek-fidelity state yazmak*. `/devir-land`'in özü *biten işi paylaşılan history'ye güvenle entegre etmek*. İlki yazma/recall problemi, ikincisi merge/concurrency problemi. Tek skill'e sıkıştırmak ikisinin de gate'ini bulandırırdı.
+
+**Süreklilik kararı (no-note / no-memory):** dilim DONE → gelecek session'a aktarılacak "nerede kalındı" yok. Bu yüzden `/devir-land` L1 `session-state` yazmaz, `devir_memory.py upsert` çağırmaz, L2 not üretmez/consume/flip etmez. Saf entegrasyon. (Branch'in açık notu varsa ve dilim onu bitiriyorsa → kullanıcıya yalnızca `/devir-resume` consume / manuel flip **önerir**; skill nota dokunmaz.) Bu, §3 not yaşam döngüsünü `/devir-land`'in **kasıtlı olarak es geçtiği** anlamına gelir.
+
+**DONE GATE** (`/devir`'in promotion-gate'inin land-analoğu): land etmeden ÖNCE dilimin gerçekten bittiği mekanik kanıtlanır — half-edit yok · `[TODO]` taraması temiz · kod değiştiyse `pnpm test:run` + `tsc --noEmit` **verbatim** geçer · dilim kendi içinde kapalı. Geçmezse → `/devir`'e yönlendir (land yarım iş için değil).
+
+**Conflict tasarımı — conservative + Opus-supervised escalation (§4'ün uzantısı):**
+- **Default conservative:** cerrahi pathspec (asla `-A`/`-u`), fetch + rebase-before-push, **force-push YOK**, pushed commit'e history-rewrite YOK, non-fast-forward'da **retry-once**.
+- **Çakışma/divergence'ta kör çözme YOK, kör sorma YOK:** önce mekanik bağlam topla → **Opus supervisor subagent** (READ-ONLY analiz, hiç yazmaz) → verdict (`SIMPLE/MEDIUM/HIGH/UNCERTAIN` + `foreign_involved` + `foreign_work_dropped`).
+- **Verdict kapısı:** SIMPLE **ve** çatışma yalnız kendi dilim dosyalarında (MINE) **ve** additive/mekanik **ve** yabancı iş düşmüyor → uygula + devam + **raporla (ham hata dahil)**. Aksi halde (MEDIUM+/UNCERTAIN, **herhangi bir FOREIGN dosya**, yabancı-iş-düşürme riski) → analiz + seçenekleri sun, **açık onay bekle**. Foreign-file conflict ne kadar "basit" görünse de **HER ZAMAN** escalate eder.
+- **Single-writer (§4a ile uyum):** subagent yalnız öneri üretir (geri-alınabilir); **tek yazıcı = ana skill** (atomik, denetlenebilir). İki yazıcı paylaşılan worktree'de race + geri-alınamaz yabancı-hunk kaybı doğururdu.
+
+**Paralel & skalar session zarar-vermezlik garantisi:** paralel = diğer eşzamanlı worktree/branch session'ları; skalar = bu tek lineer timeline. Garanti mekanizmaları: cerrahi pathspec (yalnız dilim dosyaları) · additive (asla destructive) entegrasyon · force-push YOK · `-A`/`-u` YOK · rebase YALNIZ local-unpushed commit'lere (`@{u}..@`) · yabancı hunk asla atılmaz · paylaşımlı tek-dosya index'e (gerekirse) yalnız `devir_memory.py` flock-helper ile yazılır (varsayılan: hiç dokunulmaz).
+
+---
+
+## 8. Versiyon tablosu
 
 | v | Tarih | Değişiklik |
 |---|---|---|
 | 1.0 | (öncesi) | 5 faz, memory+CLAUDE.md, 270k advisory + mekanik dump. Kalıcı not/ID/commit yok. |
 | **2.0** | 2026-06-13 | **Unique-ID git-tracked not** (`.claude/docs/devir-notes/`) + draft→open→consumed lifecycle + **260k** + commit kapanışı (trailer'sız) + MEMORY.md `flock` tam-fix + **`/devir-resume`** (staleness + ask-on-ambiguity) + redaction/opt-in raw + SessionStart auto-inject & banner. Benchmark-driven (landscape survey) + 13-bulgu adversarial-review hardening (genişletilmiş redaction patternleri, staleness ref-guard, token "son-kazanır", concurrency edge-case'leri). |
+| **2.1** | 2026-06-14 | **`/devir-land`** — bitmiş-dilim tümleyeni (§7): aynı session'da kapalı dilimi (döküman + plan + ilgili PR/branch kodu) commit + push ile indir. DONE GATE (test+tsc verbatim) · cerrahi pathspec (asla `-A`/`-u`) · fetch + rebase-before-push (force YOK, retry-once) · conservative + **Opus supervisor subagent** conflict gate (SIMPLE & kendi-territory & additive → uygula+raporla; aksi/FOREIGN → onay bekle). Not/memory'ye dokunmaz (süreklilik YOK); single-writer = ana skill; paralel & skalar session zarar-vermezlik garantisi. |
