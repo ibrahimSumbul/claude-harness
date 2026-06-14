@@ -30,6 +30,7 @@ L1 + L2'yi **model** (skill) yazar; L3 **deterministik** çalışır (model uyma
 **Skills** (`disable-model-invocation: true` — yalnızca kullanıcı tetikler):
 - [`skills/devir/SKILL.md`](skills/devir/SKILL.md) — manuel `/devir`: canlı git state yakala → L1+L2 yaz → handoff bloğu → commit kapanışı (Faz 0-8). Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
 - [`skills/devir-resume/SKILL.md`](skills/devir-resume/SKILL.md) — `/devir-resume`: yeni session'da not seç → staleness (git-drift) kontrolü → ne anladığını söyle → **onay al** → devam.
+- [`skills/devir-land/SKILL.md`](skills/devir-land/SKILL.md) — `/devir-land`: bitmiş, kendi içinde kapalı dilimi **aynı session'da** indir → DONE GATE (test+tsc verbatim) → cerrahi pathspec staging → trailer'sız commit → fetch + rebase-before-push (force YOK) → çakışmada Opus supervisor subagent + onay kapısı (Faz 0-6). Not/memory'ye dokunmaz (süreklilik yok); `/devir`'in bitmiş-dilim tümleyeni. Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
 
 **Hooks** (L3, hepsi defensive: her hata → exit 0, asla session/compaction kırmaz):
 - [`hooks/devir-autotrigger.py`](hooks/devir-autotrigger.py) — `UserPromptSubmit`: ~260k token eşiğinde `/devir` çalıştırmayı önerir (advisory nudge + refire guard).
