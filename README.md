@@ -82,6 +82,27 @@ python3 hooks/devir_e2e_test.py
 python3 tools/check_doc_sync.py
 ```
 
+## Design rationale
+
+**Long-context degradation is a tendency, not a weak-model problem.** However capable the model,
+context efficiency tends to decline as a session grows into the ~250–300k range — a pattern
+widely seen in long-context evaluations. A larger context window (e.g. Fable's 1M tokens)
+*defers* this; it doesn't eliminate it. devir gets ahead of that wall for tools like Claude Code
+running on Opus — flushing early (around the ~260k mark) and turning an unavoidable limit into a
+controlled, high-fidelity handoff instead of a lossy auto-compaction.
+
+**Human-in-the-loop, by design.** A single powerful command can finish a complex task
+end-to-end — but intervening mid-run is hard, especially when you want a say in how much
+documentation or process detail the run surfaces. devir exposes natural checkpoints instead:
+approval before commit/push, ask-on-ambiguity on resume, a staleness check before continuing,
+and reviewable artifacts (the handoff note, the supervisor verdict) at every step — so you stay
+in the loop without fighting the tool. (These checkpoints are structural; whether they
+*measurably* improve outcomes across workflows is still an open question.)
+
+For the full, evidence-based comparison with Anthropic Fable — including an honest account of
+what is **not** claimed (no eval yet, unmeasured cost/latency) — see
+[`docs/fable-comparison.md`](docs/fable-comparison.md) *(Turkish)*.
+
 ## Install
 
 This repo is a **snapshot**; the source of truth is your working install at `~/.claude/`.
@@ -113,3 +134,7 @@ is the live, working setup):
   **diagram-update discipline** ([`docs/diagrams/README.md`](docs/diagrams/README.md)).
 
 Türkçe sürüm / Turkish version: **[README.tr.md](README.tr.md)**.
+
+## License
+
+[MIT](LICENSE) © 2026 İbrahim Sümbül.

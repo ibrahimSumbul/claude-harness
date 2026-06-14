@@ -52,6 +52,27 @@ L1 + L2'yi **model** (skill) yazar; L3 **deterministik** çalışır (model uyma
 python3 hooks/devir_e2e_test.py
 ```
 
+## Tasarım gerekçesi
+
+**Long-context degradation bir eğilimdir, "zayıf model" sorunu değil.** Model ne kadar güçlü
+olursa olsun, bir session ~250–300k aralığına girdikçe context verimi düşme eğilimindedir —
+long-context değerlendirmelerinde yaygın gözlenen bir örüntü. Daha büyük bir context penceresi
+(ör. Fable'ın 1M token'ı) bunu *erteler*, ortadan kaldırmaz. devir, Claude Code + Opus gibi
+araçlar için duvarın **önüne geçer** — erken (yaklaşık ~260k'da) flush eder ve kaçınılmaz sınırı,
+lossy auto-compaction yerine kontrollü, yüksek-fidelity bir devir-teslime çevirir.
+
+**Tasarım gereği human-in-the-loop.** Tek güçlü bir komut kompleks işi uçtan uca bitirebilir —
+ama orta-akışta müdahale etmek zordur, özellikle çalışmanın ne kadar dökümantasyon veya işlem
+ayrıntısı yüzeye çıkardığında söz sahibi olmak istediğinde. devir bunun yerine doğal
+checkpoint'ler sunar: commit/push öncesi onay, resume'da belirsizlikte SOR, devam öncesi
+staleness kontrolü ve her adımda incelenebilir artefakt (handoff notu, supervisor verdict) —
+böylece araçla güreşmeden döngüde kalırsın. (Bu checkpoint'ler yapısaldır; farklı iş akışlarında
+sonucu *ölçülebilir* biçimde iyileştirip iyileştirmediği henüz açık bir soru.)
+
+Anthropic Fable ile tam, kanıta dayalı karşılaştırma — neyin **iddia edilmediğinin** (henüz eval
+yok, maliyet/latency ölçülmedi) dürüst dökümü dahil — için:
+[`docs/fable-comparison.md`](docs/fable-comparison.md).
+
 ## Kurulum
 
 Bu repo bir **snapshot**'tır; tek kaynak (source of truth) çalışan kurulumdur: `~/.claude/`.
@@ -69,3 +90,7 @@ Bu repo bir **snapshot**'tır; tek kaynak (source of truth) çalışan kurulumdu
 - [`docs/workflow.md`](docs/workflow.md) — sistemin tam workflow'u: kullanıcı neyi/ne zaman tetikler, arka planda ne/ne zaman/neden çalışır (diyagramlarla).
 - [`docs/fable-comparison.md`](docs/fable-comparison.md) — bu orchestration yaklaşımının Anthropic Fable ile dürüst, kanıta dayalı karşılaştırması.
 - [`docs/diagrams/`](docs/diagrams/) — standalone SVG şemalar + **diyagram-güncelleme disiplini** ([`docs/diagrams/README.md`](docs/diagrams/README.md)). Skill/hook değiştiğinde diyagramlar da güncellenir; [`tools/check_doc_sync.py`](tools/check_doc_sync.py) sabit-, hook-wiring- ve skill-adı drift'ini yakalar.
+
+## Lisans
+
+[MIT](LICENSE) © 2026 İbrahim Sümbül.
