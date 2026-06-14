@@ -8,8 +8,8 @@ yalan söyler. Bu dizin hem şemaları hem de o senkronu koruyan kuralı/araçla
 
 | Dosya | Ne gösterir | Kaynak (source of truth) |
 |-------|-------------|--------------------------|
-| [`devir-trigger-flow.svg`](devir-trigger-flow.svg) | Kullanıcı tetikleri vs L3 hook akışı (tek bakışta) | `hooks/devir-*.py`, `settings.example.json` |
-| `../workflow.md` (Mermaid ×3) | Mimari · tam lifecycle · güvenlik-ağı sequence | `skills/devir/*`, `skills/devir-resume/SKILL.md`, `hooks/*` |
+| [`devir-trigger-flow.svg`](devir-trigger-flow.svg) | Kullanıcı tetikleri (/devir · /devir-resume · /devir-land) vs L3 hook akışı (tek bakışta) | `skills/*/SKILL.md`, `hooks/devir-*.py`, `settings.example.json` |
+| `../workflow.md` (Mermaid ×3) | Mimari · tam lifecycle · güvenlik-ağı sequence | `skills/devir/*`, `skills/devir-resume/SKILL.md`, `skills/devir-land/SKILL.md`, `hooks/*` |
 
 > `devir-trigger-flow.svg` **standalone**'dur (inline hex, her yerde render olur — GitHub/tarayıcı).
 > İnline gösterilen renkli sürüm visualize-host CSS class'larına dayanır; bu dosya ona bağlı değildir.

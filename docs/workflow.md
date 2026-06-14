@@ -26,6 +26,12 @@ Mermaid diyagramlar GitHub'da render olur ve detayı taşır.*
 *cross-machine taşıma* ve *paralel-branch ayrıştırma* için hak ediyor. L3, kullanıcı/model
 manuel `/devir`'i kaçırırsa devreye giren ağdır — **zorlayıcı değil, advisory**.
 
+> **Üç kullanıcı-manuel skill:** `/devir` (yarım iş ~260k'ya çarptı → handoff + fresh session),
+> `/devir-resume` (fresh session'da güvenli devam = handon), `/devir-land` (sınırdan **ÖNCE**
+> biten kapalı dilimi **AYNI session**'da commit + push ile indir = land — **not YOK, L1 memory
+> YOK, süreklilik YOK**). `/devir-land` ayrıntısı: §3.1 + §4 + §7; gerekçe
+> [`DESIGN.md`](../skills/devir/DESIGN.md) §7.
+
 ---
 
 ## 2. Mimari
@@ -50,6 +56,9 @@ flowchart TB
     SKILL -->|yazar| L2
     RESUME["/devir-resume skill<br/>(kullanici-manuel)"] -->|okur + consume| L2
     RESUME -->|fallback okur| L1
+    LAND["/devir-land skill<br/>(kullanici-manuel · AYNI session)"] -->|cerrahi commit+push| GITPR["ilgili PR/branch<br/>git history (remote)"]
+    LAND -.->|DOKUNMAZ| L1
+    LAND -.->|DOKUNMAZ| L2
     H2 -->|mekanik draft| L2
     H3 -->|RESUME oku| L2
     COMMON["devir_common.py · devir_memory.py<br/>(paylasilan lib)"] -.-> L3
@@ -57,6 +66,8 @@ flowchart TB
 ```
 
 L1+L2'yi **model** (skill) yazar; L3 **deterministik** çalışır (model uymasa bile).
+`/devir-land` L1/L2/L3'ün **hiçbirine** yazmaz — biten dilimi doğrudan ilgili PR/branch git
+history'sine entegre eder (not/memory'ye dokunmadan).
 
 ---
 
@@ -64,7 +75,11 @@ L1+L2'yi **model** (skill) yazar; L3 **deterministik** çalışır (model uymasa
 
 ```mermaid
 flowchart TD
-    A["Kullanici: /devir<br/>(~260k token, manuel)"] --> B["Faz 1 · canli git state<br/>git status / log / pnpm test (verbatim)"]
+    SLICE{"Context sinirina yaklasildi<br/>is hangi durumda?"}
+    SLICE -->|"BITMIS kapali dilim, sinirdan ONCE"| LAND["/devir-land<br/>(AYNI session · commit+push)"]
+    LAND --> LANDX["DONE GATE (test+tsc verbatim) → cerrahi pathspec (asla -A/-u)<br/>→ fetch + rebase-before-push (force YOK · retry-once)<br/>conflict → Opus supervisor → SIMPLE+MINE+additive: uygula+raporla · aksi: onay<br/>NOT yok · L1/L2 yazimi yok · fresh session YOK"]
+    SLICE -->|"YARIM is, sinir carpti"| A["Kullanici: /devir<br/>(~260k token, manuel)"]
+    A --> B["Faz 1 · canli git state<br/>git status / log / pnpm test (verbatim)"]
     B --> C["Faz 2 · in-flight + ✗ denenen/basarisiz + kararlar<br/>(en kritik: siradaki TAM adim)"]
     C --> D["Faz 3 · L1 memory<br/>session-state + MEMORY.md flock upsert"]
     D --> E["Faz 5 · L2 not<br/>PROMOTION GATE → open / draft"]
@@ -94,6 +109,53 @@ flowchart TD
 **Yazma etkisi (özet):** L1 (session-state + topic dosyaları) + L2 (`<id>.md`) yazılır →
 `MEMORY.md` flock-upsert → git commit kapanışı → kullanıcı **fresh session** açar.
 
+### 3.1 `/devir-land` — biten dilimi indir (karşıt yön, AYNI session)
+
+`/devir` yarım işi sınıra çarpınca devreder; **`/devir-land` ise sınırdan ÖNCE biten kapalı
+bir dilimi** (döküman + plan + ilgili PR/branch koduna ait kod) **AYNI session'da** kalarak
+commit + push ile indirir. Süreklilik problemi değil, **entegrasyon** problemi — bu yüzden
+not da memory de yazmaz.
+
+| | `/devir` | `/devir-land` |
+|---|---|---|
+| Tetik | Yarım iş ~260k'ya **çarptı** | Kapalı dilim sınırdan **ÖNCE bitti** |
+| Süreklilik | L1 memory + L2 not + handoff bloğu | **YOK** — not/memory'ye dokunmaz |
+| Session | **fresh session** aç | **AYNI session**'da kal |
+| Eylem | state'i kalıcı katmana flush | dilimi ilgili PR/branch'e commit + push |
+
+**Ne yapar:** DONE GATE (half-edit yok · `[TODO]`/`FIXME(devir)` taraması temiz · kod
+değiştiyse `pnpm test:run` + `tsc --noEmit` **verbatim** geçer · dilim kendi içinde kapalı)
+→ cerrahi staging (**yalnız** teyitli pathspec, **asla** `git add -A`/`-u`) → commit
+(**AI co-author trailer YOK** — repo konvansiyonu) → conservative push → kapanış raporu.
+**Yazma etkisi YOK:** L1 `session-state` yazmaz, `devir_memory.py upsert` çağırmaz, L2 not
+üretmez/consume/flip etmez. §3 not yaşam döngüsünü **kasıtlı es geçer**. (Branch'in açık notu
+varsa ve dilim onu bitiriyorsa → kullanıcıya yalnızca `/devir-resume` consume / manuel flip
+**önerir**; nota dokunmaz.)
+
+**Çakışma stratejisi (conservative + Opus-supervised):**
+- **Default conservative:** `fetch` + **rebase-before-push** (rebase yalnız local-unpushed
+  `@{u}..@` penceresine), **force-push YOK**, pushed commit'e history-rewrite YOK,
+  non-fast-forward'da **retry-once**. Saf push yarışı (içerik çakışması **yok**) → **DUR ve
+  bildir** (force kullanmaz); supervisor çağrılmaz.
+- **İçerik çakışmasında kör çözme/sorma YOK:** önce mekanik bağlam topla (çatışan dosyalar +
+  conflict hunk'ları + iki-yönlü divergent log MINE/THEIRS + `git status --short`) → **Opus
+  supervisor subagent** (`Task`, **READ-ONLY** analiz; hiçbir dosya/git komutu yazmaz) →
+  yapılandırılmış verdict: `SIMPLE / MEDIUM / HIGH / UNCERTAIN` + `foreign_involved` +
+  `foreign_work_dropped`.
+- **Verdict kapısı:** **SIMPLE & çatışma yalnız kendi dilim (MINE) dosyalarında & additive/
+  mekanik & yabancı iş düşmüyor** → ana skill uygular → `rebase --continue` → push →
+  **raporla (ham hata/marker dahil)**. Aksi halde (MEDIUM/HIGH/UNCERTAIN, **herhangi bir
+  FOREIGN dosya**, ya da yabancı-iş-düşürme riski) → hiçbir şey uygulamaz, supervisor analizini
+  + seçenekleri sunar, **açık kullanıcı onayı bekler**. *Foreign-file conflict ne kadar "basit"
+  görünse de HER ZAMAN escalate eder.*
+- **Single-writer:** tek yazıcı = ana skill; supervisor yalnız geri-alınabilir öneri üretir
+  (paylaşılan worktree'de iki yazıcı = race + geri-alınamaz yabancı-hunk kaybı). Güvenli kaçış
+  her an `git rebase --abort` (local, yıkıcı değil).
+
+Gerekçe, paralel-conflict tasarımı ve `/devir` ile karşılaştırma:
+[`../skills/devir/DESIGN.md`](../skills/devir/DESIGN.md) §7 (+ §4); operasyonel adımlar
+[`../skills/devir-land/SKILL.md`](../skills/devir-land/SKILL.md).
+
 ---
 
 ## 4. Tetik tablosu (A) — KULLANICI TETİKLER
@@ -102,6 +164,7 @@ flowchart TD
 |--------------------|-----------|------------------|
 | `/devir` yazar | `devir` skill (Faz 0-8: state yakala → L1+L2 → handoff → commit) | İstendiğinde, ~260k civarı. Model **otomatik çağıramaz** (`disable-model-invocation: true`). |
 | `/devir-resume` (veya "resume", "kaldığımız yerden devam", "hand on") | `devir-resume` skill (not seç → staleness → özet → çoklu ise SOR → onayla → uygula) | Fresh session başında, devam etmek için. Manuel-only. |
+| `/devir-land` (veya "land et", "biten dilimi indir", "bitti commit+push", "ilgili PR'a indir") | `devir-land` skill (DONE GATE → cerrahi staging → commit trailer'sız → fetch+rebase-before-push, force YOK → conflict'te Opus supervisor verdict gate) | Kapalı, **BİTMİŞ** bir dilim sınırdan **ÖNCE** bittiğinde, **AYNI session**'da. Manuel-only (`disable-model-invocation: true`). **Not/memory'ye dokunmaz** — süreklilik YOK. Yarım iş → `/devir`. |
 | Herhangi bir prompt gönderir | `devir-autotrigger.py` (UserPromptSubmit) önce çalışır | Her prompt; yalnızca transcript ≥260k ise ve refire penceresi izin veriyorsa nudge enjekte eder. |
 | `/compact` (manuel compaction) | `devir-precompact.py` (`trigger=manual`) → sonra `devir-sessionstart.py` (`source=compact`) | Manuel compaction'da: dump + draft yazılır, sonra RESUME geri enjekte edilir. |
 | Model-invocable skill çağırır (`/code-review`, `/simplify`, `/verify`, …) | İlgili skill | İsimle veya modelin trigger eşleşmesiyle (devir-dışı skill'ler). |
@@ -157,6 +220,7 @@ sequenceDiagram
 |---------|-------------|----------|-----------|
 | `/devir` skill | **kullanıcı-manuel** (`disable-model-invocation: true`) | ~260k'da elle | Yüksek-fidelity flush. Yalnız model gerçek "sıradaki adım"ı, denenen/başarısız ve kararları üretebilir. |
 | `/devir-resume` skill | **kullanıcı-manuel** | Fresh session başı | Güvenli devam: doğru notu seç, anladığını doğrula, belirsizlikte SOR, yıkıcı aksiyon öncesi onay. |
+| `/devir-land` skill | **kullanıcı-manuel** (`disable-model-invocation: true`) | Kapalı dilim sınırdan **önce** bitince, aynı session | Güvenli entegrasyon (süreklilik değil): cerrahi pathspec (asla `-A`/`-u`), fetch + rebase-before-push (force YOK, retry-once), conflict'te **Opus supervisor subagent** (READ-ONLY) → verdict gate (SIMPLE & MINE & additive → uygula+raporla; MEDIUM+/UNCERTAIN/**FOREIGN** → onay bekle). Not/memory YAZMAZ. |
 | `devir-autotrigger.py` | **hook: UserPromptSubmit** | tokens ≥ 260k & refire izinli | Degradation öncesi advisory nudge. Zorlayamaz → deterministik ağ ayrı. |
 | `devir-precompact.py` | **hook: PreCompact** (`manual`/`auto`) | Compaction'dan hemen önce | İşbirliği gerekmeden mekanik yakalama: dump (her zaman) + draft (repo & open-yok). Her hata → exit 0 (compaction'ı kırmaz). |
 | `devir-sessionstart.py` | **hook: SessionStart** (`source`-keyed) | Yeni context | `compact`→RESUME inject; `startup`/`resume`→banner; `clear`→no-op. |

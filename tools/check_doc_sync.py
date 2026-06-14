@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """Diyagram/doküman senkron kontrolü — skill/hook değişince doc güncel kaldı mı?
 
-Vendored hook'lardaki sayısal sabitleri ve settings.example.json'daki hook event'lerini
-çıkarır, docs/workflow.md'de geçtiklerini doğrular. Drift varsa exit 1 + rapor.
+Vendored hook'lardaki sayısal sabitleri, settings.example.json'daki hook event'lerini ve
+skills/*/SKILL.md'deki skill adlarını çıkarır, docs/workflow.md'de geçtiklerini doğrular.
+Drift varsa exit 1 + rapor.
 
-KAPSAM: sabit-drift + hook-wiring drift (en sık kayan, en kolay otomatize edilen kısım).
+KAPSAM: sabit-drift + hook-wiring drift + skill-adı drift (en sık kayan, en kolay otomatize
+edilen kısımlar). Skill-adı drift'i: yeni bir skill eklenip (ör. `/devir-land`) workflow.md'ye
+dokümante edilmezse yakalar — her skills/*/SKILL.md `name:`'i workflow.md'de geçmeli.
 YAPISAL diyagram doğruluğu (yeni faz/akış/kutu) bu kontrolün DIŞINDA — onu insan günceller
 (bkz. docs/diagrams/README.md §3). Yanlış-pozitif vermez: küçük tamsayılar (6/7 gibi) zaten
 docs'ta başka yerde geçebilir; asıl güç 260_000 / 262_144 gibi ayırt edici sabitlerdedir.
+Skill adları kelime-sınırıyla aranır → `devir`, `devir-notes` içine karışmaz.
 """
+import glob
 import json
 import os
 import re
@@ -18,6 +23,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS = os.path.join(REPO, "hooks")
 DOC = os.path.join(REPO, "docs", "workflow.md")
 SETTINGS = os.path.join(REPO, "settings.example.json")
+SKILLS_GLOB = os.path.join(REPO, "skills", "*", "SKILL.md")
 
 # (hook dosyası, sabit adı) — koddan int çıkarılır, doc'ta '{:_}' biçimi aranır.
 CONST_SOURCES = [
@@ -45,6 +51,23 @@ def extract_int(src, name):
 def doc_has_number(doc, value):
     """value, doc'ta '260_000' VEYA '260000' biçiminde geçiyor mu?"""
     return f"{value:_}" in doc or str(value) in doc
+
+
+def frontmatter_name(src):
+    """YAML frontmatter'ın ilk `name:` değerini döndür (ilk --- bloğu). Bulunamazsa None."""
+    m = re.search(r"^---\s*\n(.*?)\n---", src, re.DOTALL)
+    block = m.group(1) if m else src
+    nm = re.search(r"^name:\s*(.+?)\s*$", block, re.MULTILINE)
+    return nm.group(1).strip() if nm else None
+
+
+def doc_has_skill(doc, name):
+    """name, doc'ta kelime-sınırıyla (opsiyonel '/' önekli) geçiyor mu?
+
+    Tire token'ın parçası sayılır → `devir`, `devir-notes`/`devir-land` içine karışmaz;
+    her skill kendi tam adıyla aranır.
+    """
+    return re.search(rf"(?<![\w-])/?{re.escape(name)}(?![\w-])", doc) is not None
 
 
 def main():
@@ -98,6 +121,23 @@ def main():
             notes.append(f"✓ hook event `{ev}` workflow.md'de geçiyor")
         else:
             problems.append(f"DRIFT: settings.example.json'da `{ev}` event'i var ama workflow.md'de YOK.")
+
+    # 4) skill-adı drift — her skills/*/SKILL.md `name:`'i workflow.md'de geçmeli
+    skill_files = sorted(glob.glob(SKILLS_GLOB))
+    if not skill_files:
+        problems.append(f"KAYIP: {os.path.relpath(SKILLS_GLOB, REPO)} hiç eşleşmedi (skills/ taşındı mı?).")
+    for sf in skill_files:
+        rel = os.path.relpath(sf, REPO)
+        name = frontmatter_name(read(sf))
+        if not name:
+            problems.append(f"{rel}: frontmatter `name:` okunamadı.")
+        elif doc_has_skill(doc, name):
+            notes.append(f"✓ skill `/{name}` workflow.md'de belgeli")
+        else:
+            problems.append(
+                f"DRIFT: skill `/{name}` ({rel}) var ama workflow.md'de geçmiyor — "
+                f"tetik tablosu + §7 + diyagramlara ekle."
+            )
 
     print("\n".join(notes))
     if problems:

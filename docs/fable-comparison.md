@@ -135,9 +135,16 @@ Kendi kurulumumuzu olduğu gibi haritaladık. Önemli **doğruluk düzeltmeleri*
 - **"diff review 1x" = tek-pass reviewer'lar:** `engineering:code-review` (single-pass,
   security/perf/correctness/maintainability), built-in `review` (PR), ve `code-review`'un
   low/medium effort'u ("daha az, yüksek-güvenli bulgu").
-- **"Case-specific subagent" = iki gerçek mekanizma:** `security-review` allowed-tools'unda
+- **"Case-specific subagent" = üç gerçek mekanizma:** `security-review` allowed-tools'unda
   `Task` taşır → odaklı güvenlik subagent'ı açabilir; `verify` ise *yüzeye-özgü* (CLI/server/
-  GUI/library/agent/CI) davranış-agent'ı, repo'nun `verifier-*` skill'ini çağırır.
+  GUI/library/agent/CI) davranış-agent'ı, repo'nun `verifier-*` skill'ini çağırır. Üçüncüsü
+  bizim kendi katmanımızdan: **`/devir-land`** rebase/merge çakışmasında bir **Opus supervisor
+  subagent**'ı (`Task`, READ-ONLY) açar — çatışmayı sınıflandırır (`SIMPLE/MEDIUM/HIGH/UNCERTAIN`
+  + `foreign_involved`/`foreign_work_dropped`) ama **uygulamaz**; tek yazıcı ana skill kalır
+  (**single-writer**), yalnız SIMPLE & kendi-territory & additive verdict otomatik uygulanır,
+  aksi/FOREIGN her zaman kullanıcı onayına çıkar. Bu, paradigma (B)'nin (akıllı koordinatör +
+  ucuz/odaklı worker + denetlenebilir kontrol) bir başka **elle-kurulmuş, reliability-odaklı**
+  örneği — üstelik foreign-iş-koruma ve geri-alınabilirlik (rebase --abort) garantileriyle.
 - **⚠ "Opus 1x, Sonnet 2x" model ataması hiçbir skill'de tanımlı DEĞİL.** `simplify`'ın
   3'lü fan-out'u model **belirtmez**; tüm review skill'leri model-agnostik. Yani Opus/Sonnet
   rol-başına atama **senin kendi orchestration katmanın** — skill'in özelliği değil. (Bu, doğru

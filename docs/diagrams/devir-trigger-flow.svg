@@ -1,6 +1,6 @@
-<svg width="100%" viewBox="0 0 680 452" role="img" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<svg width="100%" viewBox="-200 0 880 452" role="img" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <title>devir — kullanıcı tetikleri ve arka plan hook akışı</title>
-  <desc>İki sütunlu akış: solda kullanıcının manuel tetiklediği session/devir yolu (/devir, yeni session, /devir-resume, consume), sağda otomatik L3 hook ağı (autotrigger 260k nudge, precompact dump+draft, sessionstart RESUME inject/banner). Hook'lar advisory; kalıcı katman L1 memory + L2 git not. Kaynak: skills/devir, skills/devir-resume, hooks/devir-*.py, settings.example.json.</desc>
+  <desc>Üç akış: ortada kullanıcının manuel tetiklediği session/devir yolu (/devir, yeni session, /devir-resume, consume); solda Session A'dan ayrılan /devir-land kolu (dilim sınırdan ÖNCE bittiyse aynı session'da commit+push, force YOK, not/memory yazmaz, süreklilik yok); sağda otomatik L3 hook ağı (autotrigger 260k nudge, precompact dump+draft, sessionstart RESUME inject/banner). Hook'lar advisory; kalıcı katman L1 memory + L2 git not. Kaynak: skills/devir, skills/devir-resume, skills/devir-land, hooks/devir-*.py, settings.example.json.</desc>
   <defs>
     <marker id="ah" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M1 1.5 L8 5 L1 8.5 Z" fill="#73726c"/>
@@ -19,6 +19,7 @@
   <text x="210" y="51" font-size="12" fill="#55554f">L3 hook (otomatik · advisory)</text>
 
   <!-- column headers -->
+  <text x="-100" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">BİTMİŞ DİLİM · LAND</text>
   <text x="200" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">KULLANICI · SESSION</text>
   <text x="475" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">L3 HOOK AĞI</text>
 
@@ -42,6 +43,15 @@
   <rect x="110" y="388" width="180" height="44" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
   <text x="200" y="406" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">consume</text>
   <text x="200" y="422" font-size="12" fill="#0F6E56" text-anchor="middle">open → consumed</text>
+
+  <!-- /devir-land: Session A'dan ayrilan kol — dilim sinirdan ONCE bitti, AYNI session -->
+  <rect x="-185" y="156" width="170" height="58" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+  <text x="-100" y="177" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">/devir-land</text>
+  <text x="-100" y="194" font-size="11" fill="#0F6E56" text-anchor="middle">commit+push · force YOK</text>
+  <text x="-100" y="208" font-size="11" fill="#0F6E56" text-anchor="middle">AYNI session · not/memory YOK</text>
+  <!-- branch: Session A → /devir-land (orthogonal) -->
+  <path d="M110 109 H-100 V154" fill="none" stroke="#73726c" stroke-width="1.4" marker-end="url(#ah)"/>
+  <text x="-5" y="102" font-size="11" font-style="italic" fill="#5f5e5a" text-anchor="middle">dilim BİTTİ (sınır öncesi)</text>
 
   <!-- right column (hooks) -->
   <rect x="385" y="112" width="180" height="44" rx="8" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
