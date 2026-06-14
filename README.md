@@ -1,64 +1,115 @@
 # claude-harness
 
-**Claude Code için session devir-teslim (context-flush) sistemi.** Uzun-context
-degradasyonu (~300k token) başlamadan önce çalışan session'ın state'ini yüksek-fidelity
-kalıcı katmanlara yazar, temiz bir session'a geçmeyi ve oradan **güvenli devam**ı sağlar.
+**English** · [Türkçe](README.tr.md)
 
-> `devir` (TR): bir işin/görevin başkasına veya bir sonrakine teslim edilmesi.
+**A session-handoff (context-flush) system for Claude Code.** It flushes the running session's
+live state to high-fidelity persistent layers — triggered at ~260k tokens, safely ahead of the
+~300k long-context degradation zone — then lets you open a clean session and **safely resume**
+from exactly where you left off.
+
+> *devir* (Turkish): the handover of a task to whoever comes next.
+
+![devir — who triggers what, and what runs in the background](docs/diagrams/devir-trigger-flow.en.svg)
+
+*At a glance: left — the `/devir-land` branch off Session A for a finished slice; middle — the
+manual `/devir` → new session → `/devir-resume` path; right — the automatic L3 hook net.*
 
 ---
 
-## Neden
+## Why
 
-Tek bir Claude Code session'ı büyüdükçe (~300k civarı) cevap kalitesi düşmeye başlar; devir bunu **~260k'da**, degradation bölgesine girmeden önce yakalar.
-"Yeni session aç" demek kolay ama **bağlam kaybolur**: nerede kalındığı, neyin denenip
-başarısız olduğu, hangi kararların neden alındığı. `devir` bu state'i üç katmana yazar →
-yeni session sıfırdan değil, **kaldığı yerden** devam eder.
+A single Claude Code session degrades in answer quality as it grows (~300k tokens). `devir`
+catches this **at ~260k**, before entering the degradation zone. "Just open a new session" is
+easy to say, but **context is lost**: where you left off, what was tried and failed, which
+decisions were made and why. `devir` writes that state to three layers, so the next session
+resumes **from where you left off** — not from scratch.
 
-## Mimari — üç katman
+## Architecture — three layers
 
-| Katman | Nedir | Nerede yaşar | Rol |
-|--------|-------|--------------|-----|
-| **L1** | Global memory (birincil) | `~/.claude/.../memory/` | Makine-local süreklilik; her session'a auto-recall |
-| **L2** | Git-tracked unique-ID not | `<repo>/.claude/docs/devir-notes/<id>.md` | Durable, cross-machine, takım-paylaşımlı |
-| **L3** | Hook güvenlik ağı | `~/.claude/hooks/devir-*.py` | Model işbirliği gerekmeden mekanik yakalama/restore (advisory) |
+| Layer | What | Where it lives | Role |
+|-------|------|----------------|------|
+| **L1** | Global memory (primary) | `~/.claude/projects/<project>/memory/` | Machine-local continuity; auto-recalled into every session |
+| **L2** | Git-tracked unique-ID note | `<repo>/.claude/docs/devir-notes/<id>.md` | Durable, cross-machine, team-shareable |
+| **L3** | Hook safety net | `~/.claude/hooks/devir-*.py` | Mechanical capture/restore with no model cooperation required (advisory) |
 
-L1 + L2'yi **model** (skill) yazar; L3 **deterministik** çalışır (model uymasa bile).
+L1 + L2 are written by the **model** (the skill); L3 runs **deterministically** (even if the
+model ignores it).
 
-## Bileşenler
+## Components
 
-**Skills** (`disable-model-invocation: true` — yalnızca kullanıcı tetikler):
-- [`skills/devir/SKILL.md`](skills/devir/SKILL.md) — manuel `/devir`: canlı git state yakala → L1+L2 yaz → handoff bloğu → commit kapanışı (Faz 0-8). Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
-- [`skills/devir-resume/SKILL.md`](skills/devir-resume/SKILL.md) — `/devir-resume`: yeni session'da not seç → staleness (git-drift) kontrolü → ne anladığını söyle → **onay al** → devam.
-- [`skills/devir-land/SKILL.md`](skills/devir-land/SKILL.md) — `/devir-land`: bitmiş, kendi içinde kapalı dilimi **aynı session'da** indir → DONE GATE (test+tsc verbatim) → cerrahi pathspec staging → trailer'sız commit → fetch + rebase-before-push (force YOK) → çakışmada Opus supervisor subagent + onay kapısı (Faz 0-6). Not/memory'ye dokunmaz (süreklilik yok); `/devir`'in bitmiş-dilim tümleyeni. Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
+**Skills** (`disable-model-invocation: true` — user-triggered only). The `SKILL.md` /
+`DESIGN.md` files are authored in Turkish (the live, working setup); the summaries below are
+in English.
 
-**Hooks** (L3, hepsi defensive: her hata → exit 0, asla session/compaction kırmaz):
-- [`hooks/devir-autotrigger.py`](hooks/devir-autotrigger.py) — `UserPromptSubmit`: ~260k token eşiğinde `/devir` çalıştırmayı önerir (advisory nudge + refire guard).
-- [`hooks/devir-precompact.py`](hooks/devir-precompact.py) — `PreCompact`: compaction'dan hemen önce mekanik state dump + git-tracked `draft` not (redaction'lı).
-- [`hooks/devir-sessionstart.py`](hooks/devir-sessionstart.py) — `SessionStart`: `compact`'te RESUME auto-inject; `startup`/`resume`'da durum banner'ı.
-- [`hooks/devir_common.py`](hooks/devir_common.py) — ortak yardımcılar (git, not tarama/precedence, redaction, transcript token/dosya çıkarımı).
-- [`hooks/devir_memory.py`](hooks/devir_memory.py) — `MEMORY.md` index'ine `flock` + atomik + idempotent upsert (paralel-session race koruması).
+- [`skills/devir/SKILL.md`](skills/devir/SKILL.md) — manual `/devir`: capture live git state →
+  write L1+L2 → handoff block → commit closure. Triggered when a **half-done** task approaches
+  ~260k. **Key guarantee — promotion gate:** a note is promoted to `open` only if the full
+  self-validation checklist passes (goal filled, literal `▶ RESUME` block, non-empty
+  tried/failed, decisions, no stray `[TODO]`); otherwise it stays `draft`.
+- [`skills/devir-resume/SKILL.md`](skills/devir-resume/SKILL.md) — `/devir-resume`, the "hand-on"
+  to `/devir`'s hand-off: in a fresh session, select the right note → staleness (git-drift)
+  check (FRESH / SLIGHTLY STALE / STALE) → state what it understood → **get approval** → resume.
+  Non-destructive: never deletes, only flips `open → consumed` (reversible). On ambiguity
+  (≥2 candidate notes) it **asks** instead of silently choosing.
+- [`skills/devir-land/SKILL.md`](skills/devir-land/SKILL.md) — `/devir-land`: land a finished,
+  self-contained slice **in the same session**. The pipeline: DONE GATE (test + tsc, verbatim)
+  → surgical pathspec staging (never `git add -A/-u`) → trailerless commit → `fetch` +
+  rebase-before-push (**no force-push**, retry-once). On conflict, a READ-ONLY Opus supervisor
+  subagent classifies it and either auto-applies (SIMPLE, own-files, additive) or escalates for
+  approval. **Touches no note or memory** — pure integration; the finished-slice counterpart to
+  `/devir`. Rationale: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md) §7.
 
-**Test:** [`hooks/devir_e2e_test.py`](hooks/devir_e2e_test.py) — geçici git repo + simüle harness payload'larıyla uçtan-uca regression (43/43).
+**Hooks** (L3, all defensive: every error → exit 0, never breaks the session/compaction):
+
+- [`hooks/devir-autotrigger.py`](hooks/devir-autotrigger.py) — `UserPromptSubmit`: at the
+  ~260k token threshold, advises running `/devir` (advisory nudge + refire guard).
+- [`hooks/devir-precompact.py`](hooks/devir-precompact.py) — `PreCompact`: just before
+  compaction, a mechanical state dump + a git-tracked `draft` note (with redaction).
+- [`hooks/devir-sessionstart.py`](hooks/devir-sessionstart.py) — `SessionStart`: on `compact`,
+  RESUME auto-inject; on `startup`/`resume`, a status banner.
+- [`hooks/devir_common.py`](hooks/devir_common.py) — shared helpers (git, note
+  scanning/precedence, redaction, transcript token/file extraction).
+- [`hooks/devir_memory.py`](hooks/devir_memory.py) — `flock` + atomic + idempotent upsert into
+  the `MEMORY.md` index (parallel-session race protection).
+
+**Tests:** [`hooks/devir_e2e_test.py`](hooks/devir_e2e_test.py) — end-to-end regression
+(**43/43**) driving the real hooks with simulated harness payloads in a throwaway git repo.
+[`tools/check_doc_sync.py`](tools/check_doc_sync.py) guards constant-, hook-wiring-, and
+skill-name drift between code and docs (**14 checks**).
 
 ```bash
 python3 hooks/devir_e2e_test.py
+python3 tools/check_doc_sync.py
 ```
 
-## Kurulum
+## Install
 
-Bu repo bir **snapshot**'tır; tek kaynak (source of truth) çalışan kurulumdur: `~/.claude/`.
+This repo is a **snapshot**; the source of truth is your working install at `~/.claude/`.
 
-1. `skills/` → `~/.claude/skills/` altına kopyalayın.
-2. `hooks/*.py` → `~/.claude/hooks/` altına kopyalayın.
-3. [`settings.example.json`](settings.example.json)'daki `hooks` bloğunu `~/.claude/settings.json` ile birleştirin.
-4. Doğrulama: `python3 ~/.claude/hooks/devir_e2e_test.py`
+```bash
+# from the repo root
+cp -R skills/.   ~/.claude/skills/      # /devir, /devir-resume, /devir-land
+cp    hooks/*.py ~/.claude/hooks/       # L3 hook net + shared libs
+# then merge the "hooks" block of settings.example.json into ~/.claude/settings.json
+python3 ~/.claude/hooks/devir_e2e_test.py   # verify: 43/43
+```
 
-> Sync notu: değişiklikler `~/.claude`'da yapılır, sonra bu repoya kopyalanıp commit'lenir.
-> (İleride symlink veya bir sync script'i ile tek-yönlü tutulabilir.)
+Hook wiring lives in [`settings.example.json`](settings.example.json) (`UserPromptSubmit` /
+`PreCompact` / `SessionStart`).
 
-## Dokümantasyon
+> Sync note: changes are made in `~/.claude/`, then copied into this repo and committed.
+> (A symlink or one-way sync script could keep them in lockstep in the future.)
 
-- [`docs/workflow.md`](docs/workflow.md) — sistemin tam workflow'u: kullanıcı neyi/ne zaman tetikler, arka planda ne/ne zaman/neden çalışır (diyagramlarla).
-- [`docs/fable-comparison.md`](docs/fable-comparison.md) — bu orchestration yaklaşımının Anthropic Fable ile dürüst, kanıta dayalı karşılaştırması.
-- [`docs/diagrams/`](docs/diagrams/) — standalone SVG şemalar + **diyagram-güncelleme disiplini** ([`docs/diagrams/README.md`](docs/diagrams/README.md)). Skill/hook değiştiğinde diyagramlar da güncellenir; [`tools/check_doc_sync.py`](tools/check_doc_sync.py) sabit-, hook-wiring- ve skill-adı drift'ini yakalar.
+## Documentation
+
+The deep docs are currently in Turkish (the operational skills are authored in Turkish, which
+is the live, working setup):
+
+- [`docs/workflow.md`](docs/workflow.md) *(Turkish)* — the full workflow: who triggers what and
+  when, what runs in the background and why (with diagrams).
+- [`docs/fable-comparison.md`](docs/fable-comparison.md) *(Turkish)* — an honest, evidence-based
+  comparison of this orchestration approach with Anthropic Fable.
+- [`docs/diagrams/`](docs/diagrams/) *(Turkish)* — standalone SVG diagrams + the
+  **diagram-update discipline** ([`docs/diagrams/README.md`](docs/diagrams/README.md)).
+
+Türkçe sürüm / Turkish version: **[README.tr.md](README.tr.md)**.
