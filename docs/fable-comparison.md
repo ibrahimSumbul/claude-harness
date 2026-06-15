@@ -184,6 +184,15 @@ Dürüst değerlendirme — abartısız, savunmasız.
   *uyguluyor*.
 - **Kanıta dayalı düşünme:** §0'da kendi başlangıç hipotezi kanıt karşısında terk edilip
   yerine kaynaklı bir tez konuldu (savunmacı değil, yargıyı okuyucuya bırakan bir hamle).
+- **Human-in-the-loop / müdahale edilebilirlik:** Tek güçlü komut kompleks işi uçtan uca
+  bitirir, ama orta-akış müdahale — özellikle dökümantasyon/işlem-ayrıntısı kontrolü — zordur.
+  devir mimarisi yapısal checkpoint'ler sunar: commit/push öncesi onay, resume'da belirsizlikte
+  SOR, devam öncesi staleness, her adımda incelenebilir artefakt (handoff notu, supervisor
+  verdict). Bu, §3'teki paradigma-(B) debuggability avantajının somut karşılığı — "zeka"nın bir
+  kısmını incelenebilir/düzenlenebilir kontrol noktalarına taşımak. (Tamamlayıcı gözlem:
+  long-context degradation yapısal; en güçlü model bile ~250-300k sonrası verim düşüşü gösterme
+  eğiliminde — büyük pencere duvarı erteler, kaldırmaz. Bu yüzden "duvarın önüne geçen" bir
+  handoff, model gücünden bağımsız bir değer.)
 
 **Table-stakes / abartmamamız gerekenler:**
 - `simplify`'ın 3x'i ve `ultrareview` Anthropic'in **hazır** verdiği şeyler; bizim katkımız

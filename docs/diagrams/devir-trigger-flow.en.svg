@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 880 452" role="img" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
-  <title>devir — kullanıcı tetikleri ve arka plan hook akışı</title>
-  <desc>Üç akış: ortada kullanıcının manuel tetiklediği session/devir yolu (/devir, yeni session, /devir-resume, consume); solda Session A'dan ayrılan /devir-land kolu (dilim sınırdan ÖNCE bittiyse aynı session'da commit+push, force YOK, not/memory yazmaz, süreklilik yok); sağda otomatik L3 hook ağı (autotrigger 260k nudge, precompact dump+draft, sessionstart RESUME inject/banner). Hook'lar advisory; kalıcı katman L1 memory + L2 git not. Kaynak: skills/devir, skills/devir-resume, skills/devir-land, hooks/devir-*.py, settings.example.json.</desc>
+  <title>devir — user triggers and the background hook flow</title>
+  <desc>Three flows: in the middle, the user's manually triggered session/devir path (/devir, new session, /devir-resume, consume); on the left, the /devir-land branch off Session A (if a slice finished BEFORE the limit, commit+push in the same session, no force-push, no note/memory writes, no continuity); on the right, the automatic L3 hook net (autotrigger 260k nudge, precompact dump+draft, sessionstart RESUME inject/banner). Hooks are advisory; persistent layers are L1 memory + L2 git note. Source: skills/devir, skills/devir-resume, skills/devir-land, hooks/devir-*.py, settings.example.json. English mirror of devir-trigger-flow.svg (Turkish is canonical).</desc>
   <defs>
     <marker id="ah" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M1 1.5 L8 5 L1 8.5 Z" fill="#73726c"/>
@@ -10,51 +10,51 @@
     </marker>
   </defs>
 
-  <!-- viewBox 0-origin; tüm çizim translate(200,0) ile pozitif uzaya kaydırıldı (negatif-origin render riski yok) -->
+  <!-- viewBox 0-origin; all drawing shifted into positive space via translate(200,0) (no negative-origin render risk) -->
   <g transform="translate(200,0)">
 
-  <text x="20" y="26" font-size="16" font-weight="600" fill="#20201e">devir — kim neyi tetikler, arka planda ne çalışır</text>
+  <text x="20" y="26" font-size="16" font-weight="600" fill="#20201e">devir — who triggers what, and what runs in the background</text>
 
   <!-- legend -->
   <rect x="20" y="40" width="14" height="14" rx="3" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
-  <text x="40" y="51" font-size="12" fill="#55554f">kullanıcı (manuel)</text>
+  <text x="40" y="51" font-size="12" fill="#55554f">user (manual)</text>
   <rect x="190" y="40" width="14" height="14" rx="3" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
-  <text x="210" y="51" font-size="12" fill="#55554f">L3 hook (otomatik · advisory)</text>
+  <text x="210" y="51" font-size="12" fill="#55554f">L3 hook (automatic · advisory)</text>
 
   <!-- column headers -->
-  <text x="-100" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">BİTMİŞ DİLİM · LAND</text>
-  <text x="200" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">KULLANICI · SESSION</text>
-  <text x="475" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">L3 HOOK AĞI</text>
+  <text x="-100" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">FINISHED SLICE · LAND</text>
+  <text x="200" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">USER · SESSION</text>
+  <text x="475" y="74" font-size="12" font-weight="600" fill="#55554f" text-anchor="middle" letter-spacing="0.5">L3 HOOK NET</text>
 
   <!-- main column (left) -->
   <rect x="110" y="84" width="180" height="50" rx="8" fill="#F4F2EC" stroke="#B4B2A9" stroke-width="1"/>
   <text x="200" y="105" font-size="14" font-weight="500" fill="#20201e" text-anchor="middle">Session A</text>
-  <text x="200" y="122" font-size="12" fill="#5f5e5a" text-anchor="middle">context ~260k → büyüyor</text>
+  <text x="200" y="122" font-size="12" fill="#5f5e5a" text-anchor="middle">context ~260k → growing</text>
 
   <rect x="110" y="160" width="180" height="50" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
-  <text x="200" y="181" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">/devir  (manuel)</text>
-  <text x="200" y="198" font-size="12" fill="#0F6E56" text-anchor="middle">L1+L2 yaz → commit</text>
+  <text x="200" y="181" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">/devir  (manual)</text>
+  <text x="200" y="198" font-size="12" fill="#0F6E56" text-anchor="middle">write L1+L2 → commit</text>
 
   <rect x="110" y="236" width="180" height="50" rx="8" fill="#F4F2EC" stroke="#B4B2A9" stroke-width="1"/>
-  <text x="200" y="257" font-size="14" font-weight="500" fill="#20201e" text-anchor="middle">► yeni session</text>
+  <text x="200" y="257" font-size="14" font-weight="500" fill="#20201e" text-anchor="middle">► new session</text>
   <text x="200" y="274" font-size="12" fill="#5f5e5a" text-anchor="middle">fresh context</text>
 
   <rect x="110" y="312" width="180" height="50" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
   <text x="200" y="333" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">/devir-resume</text>
-  <text x="200" y="350" font-size="12" fill="#0F6E56" text-anchor="middle">staleness + onay</text>
+  <text x="200" y="350" font-size="12" fill="#0F6E56" text-anchor="middle">staleness + approval</text>
 
   <rect x="110" y="388" width="180" height="44" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
   <text x="200" y="406" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">consume</text>
   <text x="200" y="422" font-size="12" fill="#0F6E56" text-anchor="middle">open → consumed</text>
 
-  <!-- /devir-land: Session A'dan ayrilan kol — dilim sinirdan ONCE bitti, AYNI session -->
+  <!-- /devir-land: branch off Session A — slice finished BEFORE the limit, SAME session -->
   <rect x="-185" y="156" width="170" height="58" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
   <text x="-100" y="177" font-size="14" font-weight="500" fill="#06463a" text-anchor="middle">/devir-land</text>
-  <text x="-100" y="194" font-size="11" fill="#0F6E56" text-anchor="middle">commit+push · force YOK</text>
-  <text x="-100" y="208" font-size="11" fill="#0F6E56" text-anchor="middle">AYNI session · not/memory YOK</text>
+  <text x="-100" y="194" font-size="11" fill="#0F6E56" text-anchor="middle">commit+push · no force</text>
+  <text x="-100" y="208" font-size="11" fill="#0F6E56" text-anchor="middle">same session · no note/memory</text>
   <!-- branch: Session A → /devir-land (orthogonal) -->
   <path d="M110 109 H-100 V154" fill="none" stroke="#73726c" stroke-width="1.4" marker-end="url(#ah)"/>
-  <text x="-5" y="102" font-size="11" font-style="italic" fill="#5f5e5a" text-anchor="middle">dilim BİTTİ (sınır öncesi)</text>
+  <text x="-5" y="102" font-size="11" font-style="italic" fill="#5f5e5a" text-anchor="middle">slice DONE (before limit)</text>
 
   <!-- right column (hooks) -->
   <rect x="385" y="112" width="180" height="44" rx="8" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
