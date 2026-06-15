@@ -2,9 +2,13 @@
 
 [English](README.md) · **Türkçe**
 
-**Claude Code için session devir-teslim (context-flush) sistemi.** Uzun-context
-degradasyonu (~300k token) başlamadan önce çalışan session'ın state'ini yüksek-fidelity
-kalıcı katmanlara yazar, temiz bir session'a geçmeyi ve oradan **güvenli devam**ı sağlar.
+**Claude Code için kişisel orchestration harness** — Claude Code üstüne elle kurulmuş
+skill / agent / workflow / hook katmanları (canlı `~/.claude/` kurulumunun aynası). İki alt-sistem bu katmanları paylaşır:
+
+- **devir** — session devir-teslim (context-flush): çalışan session'ın state'ini ~300k degradation bölgesinden önce (~260k) yüksek-fidelity kalıcı katmanlara yazar, temiz session'a geçip **güvenli devam**ı sağlar.
+- **adversarial-review** — çok-eksenli kod incelemesi (correctness · security · reuse); bağımsız Opus şüpheciler her bulguyu **çürütmeye** çalışır, yalnız çoğunluğu geçenler raporlanır.
+
+Tek resim: [`docs/architecture.md`](docs/architecture.md). Bu README'nin çoğu **devir**'i (olgun alt-sistem) anlatır; review alt-sistemi architecture.md'de.
 
 > `devir` (TR): bir işin/görevin başkasına veya bir sonrakine teslim edilmesi.
 
@@ -38,6 +42,14 @@ L1 + L2'yi **model** (skill) yazar; L3 **deterministik** çalışır (model uyma
 - [`skills/devir/SKILL.md`](skills/devir/SKILL.md) — manuel `/devir`: canlı git state yakala → L1+L2 yaz → handoff bloğu → **opt-in** commit kapanışı (varsayılan: not lokal kalır; commit yalnız cross-machine/takım için; Faz 0-8). Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
 - [`skills/devir-resume/SKILL.md`](skills/devir-resume/SKILL.md) — `/devir-resume`: yeni session'da not seç → staleness (git-drift) kontrolü → ne anladığını söyle → **onay al** → devam.
 - [`skills/devir-land/SKILL.md`](skills/devir-land/SKILL.md) — `/devir-land`: bitmiş, kendi içinde kapalı dilimi **aynı session'da** indir → DONE GATE (test+tsc verbatim) → cerrahi pathspec staging → trailer'sız commit → fetch + rebase-before-push (force YOK) → çakışmada Opus supervisor subagent + onay kapısı (Faz 0-6). Not/memory'ye dokunmaz (süreklilik yok); `/devir`'in bitmiş-dilim tümleyeni. Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
+- [`skills/adversarial-review/SKILL.md`](skills/adversarial-review/SKILL.md) — `/adversarial-review`: [`workflows/adversarial-review.js`](workflows/adversarial-review.js) üstünde ince tetik. Çok-eksenli bulucular (Sonnet) → bağımsız Opus şüpheciler her bulguyu **çürütmeye** çalışır → çoğunluğu geçen kalır → loop-until-dry. Advisory, insan-döngüde (auto-fix YOK). Bkz. [`docs/architecture.md`](docs/architecture.md).
+
+**Agents** (`agents/*.md` — `name`/`model`/`tools` frontmatter'lı subagent prompt'ları; model-per-role):
+- [`agents/reviewer-correctness.md`](agents/reviewer-correctness.md), [`reviewer-security.md`](agents/reviewer-security.md), [`reviewer-reuse.md`](agents/reviewer-reuse.md) — read-only bulucular (Sonnet), eksen başına bir tane.
+- [`agents/skeptic-verifier.md`](agents/skeptic-verifier.md) — adversarial doğrulayıcı (Opus); tek bulguyu çürütmeye çalışır, belirsizlik ⇒ refuted (sahte-pozitif ölür).
+
+**Workflows** (`workflows/*.js` — deterministik orchestration; ağır mantık burada):
+- [`workflows/adversarial-review.js`](workflows/adversarial-review.js) — scope → bul (×3 eksen) → dedup → doğrula (×N şüpheci, çoğunluk) → loop-until-dry → Opus sentez. Model-per-role, agent frontmatter'ından.
 
 **Hooks** (L3, hepsi defensive: her hata → exit 0, asla session/compaction kırmaz):
 - [`hooks/devir-autotrigger.py`](hooks/devir-autotrigger.py) — `UserPromptSubmit`: ~260k token eşiğinde `/devir` çalıştırmayı önerir (advisory nudge + refire guard).
@@ -77,20 +89,22 @@ yok, maliyet/latency ölçülmedi) dürüst dökümü dahil — için:
 
 Bu repo bir **snapshot**'tır; tek kaynak (source of truth) çalışan kurulumdur: `~/.claude/`.
 
-1. `skills/` → `~/.claude/skills/` altına kopyalayın.
+1. `skills/` → `~/.claude/skills/` altına kopyalayın (/devir, /devir-resume, /devir-land, /adversarial-review).
 2. `hooks/*.py` → `~/.claude/hooks/` altına kopyalayın.
-3. [`settings.example.json`](settings.example.json)'daki `hooks` bloğunu `~/.claude/settings.json` ile birleştirin.
-4. **L2 not gizliliği (opt-in commit):** global gitignore'a (`~/.config/git/ignore`) `**/.claude/docs/devir-notes/` ekleyin → notlar tüm projelerde **varsayılan lokal** kalır; commit gerekirse (cross-machine/takım) `git add -f`.
-5. Doğrulama: `python3 ~/.claude/hooks/devir_e2e_test.py`
+3. `agents/` → `~/.claude/agents/` ve `workflows/` → `~/.claude/workflows/` altına kopyalayın (adversarial-review için; aksi halde `agentType` çözülemez).
+4. [`settings.example.json`](settings.example.json)'daki `hooks` bloğunu `~/.claude/settings.json` ile birleştirin.
+5. **L2 not gizliliği (opt-in commit):** global gitignore'a (`~/.config/git/ignore`) `**/.claude/docs/devir-notes/` ekleyin → notlar tüm projelerde **varsayılan lokal** kalır; commit gerekirse (cross-machine/takım) `git add -f`.
+6. Doğrulama: `python3 ~/.claude/hooks/devir_e2e_test.py`
 
 > Sync notu: değişiklikler `~/.claude`'da yapılır, sonra bu repoya kopyalanıp commit'lenir.
 > (İleride symlink veya bir sync script'i ile tek-yönlü tutulabilir.)
 
 ## Dokümantasyon
 
-- [`docs/workflow.md`](docs/workflow.md) — sistemin tam workflow'u: kullanıcı neyi/ne zaman tetikler, arka planda ne/ne zaman/neden çalışır (diyagramlarla).
+- [`docs/architecture.md`](docs/architecture.md) — tek resim: dört katman (skills / agents / workflows / hooks) ve **devir** + **adversarial-review** alt-sistemlerinin bunları nasıl paylaştığı.
+- [`docs/workflow.md`](docs/workflow.md) — devir'in tam workflow'u: kullanıcı neyi/ne zaman tetikler, arka planda ne/ne zaman/neden çalışır (diyagramlarla).
 - [`docs/fable-comparison.md`](docs/fable-comparison.md) — bu orchestration yaklaşımının Anthropic Fable ile dürüst, kanıta dayalı karşılaştırması.
-- [`docs/diagrams/`](docs/diagrams/) — standalone SVG şemalar + **diyagram-güncelleme disiplini** ([`docs/diagrams/README.md`](docs/diagrams/README.md)). Skill/hook değiştiğinde diyagramlar da güncellenir; [`tools/check_doc_sync.py`](tools/check_doc_sync.py) sabit-, hook-wiring- ve skill-adı drift'ini yakalar.
+- [`docs/diagrams/`](docs/diagrams/) — standalone SVG şemalar + **diyagram-güncelleme disiplini** ([`docs/diagrams/README.md`](docs/diagrams/README.md)). Skill/hook/agent değiştiğinde diyagramlar da güncellenir; [`tools/check_doc_sync.py`](tools/check_doc_sync.py) sabit-, hook-wiring-, skill-adı- ve agent-wiring drift'ini yakalar (19 kontrol).
 
 ## Lisans
 

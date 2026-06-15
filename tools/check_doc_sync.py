@@ -22,8 +22,11 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS = os.path.join(REPO, "hooks")
 DOC = os.path.join(REPO, "docs", "workflow.md")
+ARCH = os.path.join(REPO, "docs", "architecture.md")
 SETTINGS = os.path.join(REPO, "settings.example.json")
 SKILLS_GLOB = os.path.join(REPO, "skills", "*", "SKILL.md")
+AGENTS_GLOB = os.path.join(REPO, "agents", "*.md")
+WORKFLOWS_GLOB = os.path.join(REPO, "workflows", "*.js")
 
 # (hook dosyası, sabit adı) — koddan int çıkarılır, doc'ta '{:_}' biçimi aranır.
 CONST_SOURCES = [
@@ -74,7 +77,7 @@ def main():
     problems = []
     notes = []
 
-    for f in [DOC, SETTINGS] + [os.path.join(HOOKS, fn) for fn, _ in CONST_SOURCES]:
+    for f in [DOC, ARCH, SETTINGS] + [os.path.join(HOOKS, fn) for fn, _ in CONST_SOURCES]:
         if not os.path.isfile(f):
             problems.append(f"KAYIP DOSYA: {f}")
     if problems:
@@ -82,6 +85,7 @@ def main():
         return 1
 
     doc = read(DOC)
+    docset = doc + "\n" + read(ARCH)   # skill adları workflow.md VEYA architecture.md'de geçebilir
 
     # 1) sabitler
     src_cache = {}
@@ -122,7 +126,7 @@ def main():
         else:
             problems.append(f"DRIFT: settings.example.json'da `{ev}` event'i var ama workflow.md'de YOK.")
 
-    # 4) skill-adı drift — her skills/*/SKILL.md `name:`'i workflow.md'de geçmeli
+    # 4) skill-adı drift — her skills/*/SKILL.md `name:`'i workflow.md VEYA architecture.md'de geçmeli
     skill_files = sorted(glob.glob(SKILLS_GLOB))
     if not skill_files:
         problems.append(f"KAYIP: {os.path.relpath(SKILLS_GLOB, REPO)} hiç eşleşmedi (skills/ taşındı mı?).")
@@ -131,12 +135,36 @@ def main():
         name = frontmatter_name(read(sf))
         if not name:
             problems.append(f"{rel}: frontmatter `name:` okunamadı.")
-        elif doc_has_skill(doc, name):
-            notes.append(f"✓ skill `/{name}` workflow.md'de belgeli")
+        elif doc_has_skill(docset, name):
+            notes.append(f"✓ skill `/{name}` workflow.md/architecture.md'de belgeli")
         else:
             problems.append(
-                f"DRIFT: skill `/{name}` ({rel}) var ama workflow.md'de geçmiyor — "
-                f"tetik tablosu + §7 + diyagramlara ekle."
+                f"DRIFT: skill `/{name}` ({rel}) var ama workflow.md/architecture.md'de geçmiyor — "
+                f"tetik tablosu/§7 + diyagramlara ya da architecture.md'ye ekle."
+            )
+
+    # 5) agent-wiring drift — workflows/*.js'in andığı her `agentType` için agents/<ad>.md olmalı
+    agent_names = {}  # name -> rel path
+    for af in sorted(glob.glob(AGENTS_GLOB)):
+        nm = frontmatter_name(read(af))
+        if not nm:
+            problems.append(f"{os.path.relpath(af, REPO)}: frontmatter `name:` okunamadı.")
+            continue
+        agent_names[nm] = os.path.relpath(af, REPO)
+        if nm != os.path.splitext(os.path.basename(af))[0]:
+            notes.append(f"⚠ agent `{nm}` dosya adı ({os.path.basename(af)}) ile eşleşmiyor (advisory).")
+    wf_files = sorted(glob.glob(WORKFLOWS_GLOB))
+    referenced = set()
+    for wf in wf_files:
+        for m in re.finditer(r"agentType:\s*['\"]([\w-]+)['\"]", read(wf)):
+            referenced.add((m.group(1), os.path.relpath(wf, REPO)))
+    for ref, wfrel in sorted(referenced):
+        if ref in agent_names:
+            notes.append(f"✓ agentType `{ref}` ({wfrel}) → {agent_names[ref]}")
+        else:
+            problems.append(
+                f"DRIFT: workflow `{wfrel}` `agentType: {ref}` kullanıyor ama agents/{ref}.md YOK — "
+                f"agent prompt'unu ekle ya da agentType'ı düzelt."
             )
 
     print("\n".join(notes))
