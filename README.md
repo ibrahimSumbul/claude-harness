@@ -20,7 +20,7 @@ yeni session sıfırdan değil, **kaldığı yerden** devam eder.
 | Katman | Nedir | Nerede yaşar | Rol |
 |--------|-------|--------------|-----|
 | **L1** | Global memory (birincil) | `~/.claude/.../memory/` | Makine-local süreklilik; her session'a auto-recall |
-| **L2** | Git-tracked unique-ID not | `<repo>/.claude/docs/devir-notes/<id>.md` | Durable, cross-machine, takım-paylaşımlı |
+| **L2** | Lokal unique-ID not (opt-in commit) | `<repo>/.claude/docs/devir-notes/<id>.md` | Varsayılan **lokal** (global gitignore'da); **opt-in commit** (`git add -f`) ile durable / cross-machine / takım-paylaşımlı |
 | **L3** | Hook güvenlik ağı | `~/.claude/hooks/devir-*.py` | Model işbirliği gerekmeden mekanik yakalama/restore (advisory) |
 
 L1 + L2'yi **model** (skill) yazar; L3 **deterministik** çalışır (model uymasa bile).
@@ -28,7 +28,7 @@ L1 + L2'yi **model** (skill) yazar; L3 **deterministik** çalışır (model uyma
 ## Bileşenler
 
 **Skills** (`disable-model-invocation: true` — yalnızca kullanıcı tetikler):
-- [`skills/devir/SKILL.md`](skills/devir/SKILL.md) — manuel `/devir`: canlı git state yakala → L1+L2 yaz → handoff bloğu → commit kapanışı (Faz 0-8). Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
+- [`skills/devir/SKILL.md`](skills/devir/SKILL.md) — manuel `/devir`: canlı git state yakala → L1+L2 yaz → handoff bloğu → **opt-in** commit kapanışı (varsayılan: not lokal kalır; Faz 0-8). Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
 - [`skills/devir-resume/SKILL.md`](skills/devir-resume/SKILL.md) — `/devir-resume`: yeni session'da not seç → staleness (git-drift) kontrolü → ne anladığını söyle → **onay al** → devam.
 - [`skills/devir-land/SKILL.md`](skills/devir-land/SKILL.md) — `/devir-land`: bitmiş, kendi içinde kapalı dilimi **aynı session'da** indir → DONE GATE (test+tsc verbatim) → cerrahi pathspec staging → trailer'sız commit → fetch + rebase-before-push (force YOK) → çakışmada Opus supervisor subagent + onay kapısı (Faz 0-6). Not/memory'ye dokunmaz (süreklilik yok); `/devir`'in bitmiş-dilim tümleyeni. Mimari gerekçeler: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md).
 
@@ -52,7 +52,8 @@ Bu repo bir **snapshot**'tır; tek kaynak (source of truth) çalışan kurulumdu
 1. `skills/` → `~/.claude/skills/` altına kopyalayın.
 2. `hooks/*.py` → `~/.claude/hooks/` altına kopyalayın.
 3. [`settings.example.json`](settings.example.json)'daki `hooks` bloğunu `~/.claude/settings.json` ile birleştirin.
-4. Doğrulama: `python3 ~/.claude/hooks/devir_e2e_test.py`
+4. **L2 not gizliliği (opt-in commit):** global gitignore'a (`~/.config/git/ignore`) `**/.claude/docs/devir-notes/` ekleyin → notlar tüm projelerde **varsayılan lokal** kalır; commit gerekirse (cross-machine/takım) `git add -f`.
+5. Doğrulama: `python3 ~/.claude/hooks/devir_e2e_test.py`
 
 > Sync notu: değişiklikler `~/.claude`'da yapılır, sonra bu repoya kopyalanıp commit'lenir.
 > (İleride symlink veya bir sync script'i ile tek-yönlü tutulabilir.)

@@ -1,6 +1,6 @@
 ---
 name: devir
-description: Session devir-teslim / context flush — context ~260k'ya ulaşınca MANUEL çalıştır. Canlı git/branch/worktree state'ini komutla yakala, in-flight + denenen/başarısız + kararları yaz, L1 memory (birincil) + L2 git-tracked unique-ID not (.claude/docs/devir-notes/) üret, MEMORY.md'yi flock-helper ile çakışmasız güncelle, non-destructive stale-fix yap, verbatim handoff bloğu + git commit kapanışı → fresh session'a geç. Mimari/karar gerekçeleri: DESIGN.md.
+description: Session devir-teslim / context flush — context ~260k'ya ulaşınca MANUEL çalıştır. Canlı git/branch/worktree state'ini komutla yakala, in-flight + denenen/başarısız + kararları yaz, L1 memory (birincil) + L2 lokal unique-ID not (.claude/docs/devir-notes/, varsayılan lokal — commit opt-in) üret, MEMORY.md'yi flock-helper ile çakışmasız güncelle, non-destructive stale-fix yap, verbatim handoff bloğu + opt-in commit kapanışı → fresh session'a geç. Mimari/karar gerekçeleri: DESIGN.md.
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(openssl:*), Bash(python3:*), Bash(date:*), Read, Edit, Write, Grep
 ---
@@ -10,7 +10,7 @@ allowed-tools: Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(openssl:*), Bash(pyth
 Context ~260k'ya ulaşınca **MANUEL** çalıştır. State'i kalıcı katmana yüksek-fidelity yaz → **fresh session** aç → ~300k degradation bölgesine girmeden kalite koru.
 **Mimari, lifecycle, conflict, benchmark gerekçeleri → [`DESIGN.md`](DESIGN.md).** Bu dosya operasyonel adımlar.
 
-**Üç katman (sen = L1+L2 yazarı):** L1 global memory (birincil) · L2 git-tracked unique-ID not (durable/cross-machine) · L3 hook ağı (advisory nudge + mekanik draft + restore).
+**Üç katman (sen = L1+L2 yazarı):** L1 global memory (birincil) · L2 lokal unique-ID not (varsayılan lokal; **opt-in commit** ile durable/cross-machine) · L3 hook ağı (advisory nudge + mekanik draft + restore).
 
 ## İlkeler (önce oku)
 - **Minimal & mekanik ol** — degraded context'tesin. Canonical doc'ları YENİDEN OKUMA. Faz 1 komut çıktıları + context'te olana dayan.
@@ -58,7 +58,7 @@ Auto-memory bölümü (system prompt) format/dizini tanımlar — ona uy.
 - SADECE düzenlenecek section'ları oku (§2 faz/branch/PR · §3 karar log başa max 10 · §4 facts · §8 versiyon). Tüm dosyayı/canonical'ları değil.
 - Worktree'de uncommitted kalırsa fresh-from-main görmez → kritik state zaten Faz 3'te memory'de.
 
-## Faz 5 — L2 git-tracked not yaz (promotion gate)
+## Faz 5 — L2 not yaz (lokal; promotion gate)
 `<repo>/.claude/docs/devir-notes/<id>.md` yaz — frontmatter + zorunlu bölümler:
 ```md
 ---
@@ -102,19 +102,20 @@ Güncellendi: memory session-state-<branch> + (CLAUDE.md §<...> varsa)
 ═══════════════════
 ```
 
-## Faz 7 — Git commit kapanışı (onay zorunlu)
-`.claude/docs/devir-notes/` + memory git-tracked DEĞİL (memory makine-local); not git-tracked → commit edilmezse cross-machine/fresh-from-main görmez.
-1. **Branch güvenliği:** `main`/protected ise → doğrudan commit ETME, `chore/devir-<tarih>` branch öner.
-2. **Kapsam (feature kodundan AYRI):** `.claude/docs/devir-notes/<id>.md` + değişen `CLAUDE.md` §2/§3 (+ bu session güncellenen canonical doc parçaları). Yarım feature kodu → ayrı PR.
-3. Kullanıcıdan **onay al** (otomatik commit yok).
-4. `git add <kapsam>` → `git commit -m "chore(docs): session devir [<YYYY-MM-DD> <konu>]"` — **AI co-author trailer YOK** (kullanıcı tercihi; repo konvansiyonu trailer istiyorsa ona uy).
-5. `git status --short` ile doc kirli kalmadığını doğrula. Push: kullanıcı isterse.
-6. **▶ RESUME**'a "doc commit" yazma — bir sonraki **iş/kod** adımını yaz (commit bu fazda biter).
+## Faz 7 — L2 not kapanışı (VARSAYILAN: lokal — commit OPT-IN)
+**Varsayılan: commit ETME.** L1 memory + L2 not zaten makine-local; tek-makine solo'da L1 sürekliliği taşır, L2 git'e girmeyi yalnız **cross-machine** veya **takım/paylaşım** gerçekten gerekiyorsa hak eder (DESIGN §2). Not dosyası lokal diskte kalır; `.claude/docs/devir-notes/` **global gitignore'da** → `git status`'u kirletmez, public repo'da iç-state sızdırmaz.
+- **Varsayılan yol (commit YOK):** handoff bloğunda nota **lokal yol** olarak işaret et + "(lokal, commit edilmedi)" de. Bitti — Faz 8'e geç.
+- **Opt-in commit (yalnız cross-machine/takım gerekiyorsa):** kullanıcı isterse VEYA gerçek cross-machine/paylaşım ihtiyacı varsa → **öner + onay al** (otomatik commit yok), sonra:
+  1. **Branch güvenliği:** `main`/protected ise → doğrudan commit ETME, `chore/devir-<tarih>` branch öner.
+  2. **Kapsam (feature kodundan AYRI):** `.claude/docs/devir-notes/<id>.md` + değişen `CLAUDE.md` §2/§3 (+ bu session güncellenen canonical doc parçaları). Yarım feature kodu → ayrı PR.
+  3. **`git add -f <kapsam>`** — not dizini gitignore'da olduğundan `-f` ŞART (cerrahi pathspec; asla `-A`/`-u`) → `git commit -m "chore(docs): session devir [<YYYY-MM-DD> <konu>]"` — **AI co-author trailer YOK** (kullanıcı tercihi; repo konvansiyonu trailer istiyorsa ona uy).
+  4. `git status --short` ile doc kirli kalmadığını doğrula. Push: kullanıcı isterse.
+- **▶ RESUME**'a "doc commit" yazma — bir sonraki **iş/kod** adımını yaz (kapanış bu fazda biter).
 
 ## Faz 8 — NOT2U (kullanıcı kılavuzu, ekrana)
 ```md
 ## NOT2U — Yeni session adımları
-1. Faz 7 commit tamam mı kontrol et (değilse önce doc commit — onay).
+1. Faz 7 varsayılan = not LOKAL (commit YOK) → normalde aksiyon gerekmez. Yalnız cross-machine/takım için commit ettiysen kapsamı (+push) kontrol et.
 2. Yeni Claude Code session'ı aç.
 3. İlk mesaj: `/devir-resume`  (veya sadece `resume`).
 4. Agent nottan ne anladığını + staleness + planı verince onay cümlesiyle devam ettir.
