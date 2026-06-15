@@ -119,11 +119,11 @@ flowchart TD
 | Her session (bu proje) | Auto-memory recall (hook değil — harness özelliği) | Session başında | `MEMORY.md` index context'e enjekte; tekil memory dosyaları alaka ile okunur. **Birincil (L1) süreklilik.** |
 | Eski marker birikimi | `cleanup_old_markers()` (autotrigger içinde) | Bir UserPromptSubmit ateşlemesine binerek | `.devir-state/`'te 7 günden eski `.fired`/`.consumed.md`/`.dump.md` marker'larını sil → sınırsız büyümesin. |
 
-> **Yan yana koşan, devir-dışı hook:** `telemetry-hook.py` aynı `settings.json`'da
-> `SessionStart` + `Stop` + `PostToolUse(Edit\|Write)`'a bağlı. Bu **project-a** projesinin
-> sessiz telemetrisidir (kodu açıkça "devir ile ilgisi yok" der), yalnızca `~/Desktop/project-a`
-> altında çalışır, context enjekte etmez. Bu repoya vendor'lanmadı; sadece SessionStart'ı
-> devir ile paylaştığı için burada not edildi.
+> **Yan yana koşan, devir-dışı hook'lar:** Aynı `settings.json`'da başka sistemlere ait
+> devir-dışı hook'lar (ör. `SessionStart` / `Stop` / `PostToolUse`'a bağlı bir telemetri)
+> bulunabilir. Bunlar devir ile ilgisizdir, context enjekte etmez ve bu repoya
+> vendor'lanmamıştır; yalnızca `SessionStart` event'ini devir ile paylaştıkları için
+> burada not edilir (settings birleştirirken üzerine yazılmamalı).
 
 ---
 
