@@ -1,0 +1,5 @@
+# devir L2 notları: lokal-varsayılan (v2.2). Bu dizindeki notlar commit EDİLMEZ.
+# Repo ile taşınan güvence — global ~/.config/git/ignore olmasa bile (fresh clone / takım)
+# notlar git'e girmez. Paylaşmak gerekirse (cross-machine/takım): git add -f <yol>.
+*
+!.gitignore

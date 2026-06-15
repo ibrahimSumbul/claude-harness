@@ -24,7 +24,7 @@ Manuel `/devir` birincil yol; hook'lar advisory güvenlik ağı. (memory: `keep-
 
 **İlke:** L1 tek-session sürekliliğini zaten çözer. L2 yalnız iki durumda hak eder: **cross-machine** ve **paralel-branch disambiguation**.
 Bu yüzden L2 notu **varsayılan olarak commit EDİLMEZ** — solo tek-makinede L1 yeterli, public repo'da commit iç-state sızdırır. Git'e girmesi **opt-in**: not dizini global gitignore'da; commit gerektiğinde `git add -f` ile (Faz 7). Lokal dosya + hook/resume tarama gitignore'dan **etkilenmez** (`scan_notes` dosya sistemini okur, git'i değil).
-Skill **global** (tüm projelerde), notlar **proje-bazlı** (repo-göreli yol → `project-b`'de resume, `project-a`'in notunu görmez).
+Skill **global** (tüm projelerde), notlar **proje-bazlı** (repo-göreli yol → `project-a`'da resume, `project-b`'nin notunu görmez).
 
 ---
 

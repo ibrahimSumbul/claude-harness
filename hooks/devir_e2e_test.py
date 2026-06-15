@@ -8,7 +8,7 @@ session-id'li ephemeral dosya yazar ve sonunda temizler.
 """
 import json, os, subprocess, sys, tempfile, shutil, time
 
-HOOKS = os.path.expanduser("~/.claude/hooks")
+HOOKS = os.path.dirname(os.path.abspath(__file__))  # vendored kopyayı test et → fresh clone'da çalışır
 sys.path.insert(0, HOOKS)
 import devir_common as dc  # noqa
 

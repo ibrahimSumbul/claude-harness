@@ -1,5 +1,5 @@
 {
-  "_comment": "devir hook ağını ~/.claude/settings.json'a ekleyin. Sadece 'hooks' bloğu gösterilmiştir; mevcut ayarlarınızla birleştirin. telemetry-hook vb. devir-dışı hook'lar BURADA YOKTUR (ayrı sistemler).",
+  "_comment": "devir hook ağını ~/.claude/settings.json'a ekleyin. Sadece 'hooks' bloğu gösterilmiştir; mevcut ayarlarınızla birleştirin. Devir-dışı hook'lar (varsa) BURADA YOKTUR (ayrı sistemler).",
   "hooks": {
     "UserPromptSubmit": [
       {
