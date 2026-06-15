@@ -19,10 +19,11 @@ Manuel `/devir` birincil yol; hook'lar advisory güvenlik ağı. (memory: `keep-
 | Katman | Ne | Konum | Rol |
 |---|---|---|---|
 | **L1 — Global memory** | `session-state-<branch>.md` | `~/.claude/projects/<proje>/memory/` (git **dışı**, makine-local, proje+branch-keyed) | **BİRİNCİL süreklilik** — auto-recall ile her session yüklenir |
-| **L2 — Git-tracked not** | `<repo>/.claude/docs/devir-notes/<id>.md` | repo içi, git-tracked, **proje-bazlı** | **Durable + cross-machine** (push ile taşınır) |
+| **L2 — Lokal not (opt-in commit)** | `<repo>/.claude/docs/devir-notes/<id>.md` | repo içi, **varsayılan git-ignored** (global ignore), proje-bazlı | **Durable + cross-machine** — yalnız **opt-in commit** (`git add -f`) ile (push ile taşınır); varsayılan lokal |
 | **L3 — Hook ağı** | autotrigger / precompact / sessionstart | `~/.claude/hooks/` (global `settings.json`) | **Advisory** nudge + mekanik draft + restore |
 
 **İlke:** L1 tek-session sürekliliğini zaten çözer. L2 yalnız iki durumda hak eder: **cross-machine** ve **paralel-branch disambiguation**.
+Bu yüzden L2 notu **varsayılan olarak commit EDİLMEZ** — solo tek-makinede L1 yeterli, public repo'da commit iç-state sızdırır. Git'e girmesi **opt-in**: not dizini global gitignore'da; commit gerektiğinde `git add -f` ile (Faz 7). Lokal dosya + hook/resume tarama gitignore'dan **etkilenmez** (`scan_notes` dosya sistemini okur, git'i değil).
 Skill **global** (tüm projelerde), notlar **proje-bazlı** (repo-göreli yol → `project-b`'de resume, `project-a`'in notunu görmez).
 
 ---
@@ -175,3 +176,4 @@ OpenAI Agents SDK, LangGraph, AutoGen, cote-star/agent-chorus, AICTX.
 | 1.0 | (öncesi) | 5 faz, memory+CLAUDE.md, 270k advisory + mekanik dump. Kalıcı not/ID/commit yok. |
 | **2.0** | 2026-06-13 | **Unique-ID git-tracked not** (`.claude/docs/devir-notes/`) + draft→open→consumed lifecycle + **260k** + commit kapanışı (trailer'sız) + MEMORY.md `flock` tam-fix + **`/devir-resume`** (staleness + ask-on-ambiguity) + redaction/opt-in raw + SessionStart auto-inject & banner. Benchmark-driven (landscape survey) + 13-bulgu adversarial-review hardening (genişletilmiş redaction patternleri, staleness ref-guard, token "son-kazanır", concurrency edge-case'leri). |
 | **2.1** | 2026-06-14 | **`/devir-land`** — bitmiş-dilim tümleyeni (§7): aynı session'da kapalı dilimi (döküman + plan + ilgili PR/branch kodu) commit + push ile indir. DONE GATE (test+tsc verbatim) · cerrahi pathspec (asla `-A`/`-u`) · fetch + rebase-before-push (force YOK, retry-once) · conservative + **Opus supervisor subagent** conflict gate (SIMPLE & kendi-territory & additive → uygula+raporla; aksi/FOREIGN → onay bekle). Not/memory'ye dokunmaz (süreklilik YOK); single-writer = ana skill; paralel & skalar session zarar-vermezlik garantisi. |
+| **2.2** | 2026-06-15 | **L2 not lokal-varsayılan + commit opt-in** (§2, Faz 7). Devir tüm projelerde kullanıldığından varsayılan değişti: not artık **commit EDİLMEZ** (solo tek-makinede L1 yeterli; public repo'da iç-state sızıntısı). Mekanizma: not dizini (`.claude/docs/devir-notes/`) **global gitignore**'da → opt-in commit `git add -f` ile (yalnız cross-machine/takım). `scan_notes` dosya sistemini okuduğundan resume/hook/e2e **etkilenmez**. Repo bir **etiketli örnek** notu (`archive/`) tracked tutar; gerçek session notları lokal kalır. |

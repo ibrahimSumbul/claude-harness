@@ -19,12 +19,14 @@ Mermaid diyagramlar GitHub'da render olur ve detayı taşır.*
 | Katman | Nedir | Yazıcı | Yer |
 |--------|-------|--------|-----|
 | **L1** | Global memory (birincil süreklilik) | `/devir` skill | `~/.claude/projects/<proj>/memory/` (git-dışı, makine-local) |
-| **L2** | Git-tracked unique-ID not (durable/cross-machine) | `/devir` skill | `<repo>/.claude/docs/devir-notes/<id>.md` (commit'lenir) |
+| **L2** | Lokal unique-ID not (opt-in commit ile durable/cross-machine) | `/devir` skill | `<repo>/.claude/docs/devir-notes/<id>.md` (varsayılan **lokal**; opt-in commit) |
 | **L3** | Hook güvenlik ağı (advisory; model işbirliği gerektirmez) | deterministik | `~/.claude/hooks/devir-*.py` |
 
 **Tasarım ilkesi:** L1 tek-session sürekliliğini tek başına çözer; L2 yalnızca
-*cross-machine taşıma* ve *paralel-branch ayrıştırma* için hak ediyor. L3, kullanıcı/model
-manuel `/devir`'i kaçırırsa devreye giren ağdır — **zorlayıcı değil, advisory**.
+*cross-machine taşıma* ve *paralel-branch ayrıştırma* için hak ediyor. Bu yüzden L2 notu
+**varsayılan olarak commit EDİLMEZ** (solo tek-makinede L1 yeterli; public repo'da iç-state
+sızıntısı) — git'e girmesi **opt-in** (`git add -f`). L3, kullanıcı/model manuel `/devir`'i
+kaçırırsa devreye giren ağdır — **zorlayıcı değil, advisory**.
 
 > **Üç kullanıcı-manuel skill:** `/devir` (yarım iş ~260k'ya çarptı → handoff + fresh session),
 > `/devir-resume` (fresh session'da güvenli devam = handon), `/devir-land` (sınırdan **ÖNCE**
@@ -84,7 +86,7 @@ flowchart TD
     C --> D["Faz 3 · L1 memory<br/>session-state + MEMORY.md flock upsert"]
     D --> E["Faz 5 · L2 not<br/>PROMOTION GATE → open / draft"]
     E --> F["Faz 6 · verbatim handoff blogu (ekrana)"]
-    F --> G["Faz 7 · git commit (ONAY zorunlu, AI trailer yok)"]
+    F --> G["Faz 7 · not LOKAL (varsayilan); commit OPT-IN<br/>(cross-machine/takim → onay + git add -f, AI trailer yok)"]
     G --> H["▶ YENI SESSION ac"]
     H --> I{"SessionStart<br/>source?"}
     I -->|startup / resume| J["banner: N acik not<br/>1 → RESUME ozeti · ≥2 → SOR"]
