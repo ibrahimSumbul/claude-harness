@@ -1,6 +1,6 @@
 ---
 name: devir
-description: Session devir-teslim / context flush — context ~260k'ya ulaşınca MANUEL çalıştır. Canlı git/branch/worktree state'ini komutla yakala, in-flight + denenen/başarısız + kararları yaz, L1 memory (birincil) + L2 git-tracked unique-ID not (.claude/docs/devir-notes/) üret, MEMORY.md'yi flock-helper ile çakışmasız güncelle, non-destructive stale-fix yap, verbatim handoff bloğu + git commit kapanışı → fresh session'a geç. Mimari/karar gerekçeleri: DESIGN.md.
+description: Session devir-teslim / context flush — context ~260k'ya ulaşınca MANUEL çalıştır. Canlı git/branch/worktree state'ini komutla yakala, in-flight + denenen/başarısız + kararları yaz, L1 memory (birincil) + L2 git-tracked unique-ID not (.claude/docs/devir-notes/) üret, MEMORY.md'yi flock-helper ile çakışmasız güncelle, non-destructive stale-fix yap, verbatim handoff bloğu + git commit kapanışı → fresh session'a geç. Mimari/karar gerekçeleri — DESIGN.md.
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(openssl:*), Bash(python3:*), Bash(date:*), Read, Edit, Write, Grep
 ---
