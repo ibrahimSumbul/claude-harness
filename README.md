@@ -2,10 +2,17 @@
 
 **English** · [Türkçe](README.tr.md)
 
-**A session-handoff (context-flush) system for Claude Code.** It flushes the running session's
-live state to high-fidelity persistent layers — triggered at ~260k tokens, safely ahead of the
-~300k long-context degradation zone — then lets you open a clean session and **safely resume**
-from exactly where you left off.
+**A personal orchestration harness for Claude Code** — hand-built skill / agent / workflow / hook
+layers, mirrored from a live `~/.claude/` install. Two subsystems share those layers:
+
+- **devir** — a session-handoff (context-flush) system: it flushes the running session's live state
+  to high-fidelity persistent layers (triggered at ~260k tokens, safely ahead of the ~300k
+  long-context degradation zone), then lets you open a clean session and **safely resume**.
+- **adversarial-review** — multi-axis code review (correctness · security · reuse) where independent
+  Opus skeptics try to *refute* each finding; only majority-survivors are reported.
+
+The full picture: [`docs/architecture.md`](docs/architecture.md). Most of this README covers **devir**
+(the mature subsystem); the review subsystem is documented in the architecture doc.
 
 > *devir* (Turkish): the handover of a task to whoever comes next.
 
@@ -59,6 +66,25 @@ in English.
   subagent classifies it and either auto-applies (SIMPLE, own-files, additive) or escalates for
   approval. **Touches no note or memory** — pure integration; the finished-slice counterpart to
   `/devir`. Rationale: [`skills/devir/DESIGN.md`](skills/devir/DESIGN.md) §7.
+- [`skills/adversarial-review/SKILL.md`](skills/adversarial-review/SKILL.md) — `/adversarial-review`:
+  a thin trigger over [`workflows/adversarial-review.js`](workflows/adversarial-review.js). Multi-axis
+  finders (Sonnet) → independent Opus skeptics try to **refute** each finding → majority-survivors
+  only → loop-until-dry. Advisory, human-in-the-loop (no auto-fix). See
+  [`docs/architecture.md`](docs/architecture.md).
+
+**Agents** (`agents/*.md` — subagent prompts with `name`/`model`/`tools`; model-per-role):
+
+- [`agents/reviewer-correctness.md`](agents/reviewer-correctness.md),
+  [`reviewer-security.md`](agents/reviewer-security.md),
+  [`reviewer-reuse.md`](agents/reviewer-reuse.md) — read-only finders (Sonnet), one per review axis.
+- [`agents/skeptic-verifier.md`](agents/skeptic-verifier.md) — adversarial verifier (Opus) that tries
+  to refute a single finding; uncertainty ⇒ refuted (kills false positives).
+
+**Workflows** (`workflows/*.js` — deterministic orchestration; the heavy logic lives here):
+
+- [`workflows/adversarial-review.js`](workflows/adversarial-review.js) — scope → find (×3 axes) →
+  dedup → verify (×N skeptics, majority vote) → loop-until-dry → Opus synthesis. Model-per-role via
+  the agent files' frontmatter.
 
 **Hooks** (L3, all defensive: every error → exit 0, never breaks the session/compaction):
 
@@ -75,8 +101,8 @@ in English.
 
 **Tests:** [`hooks/devir_e2e_test.py`](hooks/devir_e2e_test.py) — end-to-end regression
 (**43/43**) driving the real hooks with simulated harness payloads in a throwaway git repo.
-[`tools/check_doc_sync.py`](tools/check_doc_sync.py) guards constant-, hook-wiring-, and
-skill-name drift between code and docs (**14 checks**).
+[`tools/check_doc_sync.py`](tools/check_doc_sync.py) guards constant-, hook-wiring-, skill-name-,
+and agent-wiring drift between code and docs (**19 checks**).
 
 ```bash
 python3 hooks/devir_e2e_test.py
@@ -110,8 +136,10 @@ This repo is a **snapshot**; the source of truth is your working install at `~/.
 
 ```bash
 # from the repo root
-cp -R skills/.   ~/.claude/skills/      # /devir, /devir-resume, /devir-land
-cp    hooks/*.py ~/.claude/hooks/       # L3 hook net + shared libs
+cp -R skills/.    ~/.claude/skills/      # /devir, /devir-resume, /devir-land, /adversarial-review
+cp    hooks/*.py  ~/.claude/hooks/       # L3 hook net + shared libs
+cp -R agents/.    ~/.claude/agents/      # subagent prompts (adversarial-review finders + skeptic)
+cp -R workflows/. ~/.claude/workflows/   # orchestration (adversarial-review.js)
 # then merge the "hooks" block of settings.example.json into ~/.claude/settings.json
 # L2 note privacy (opt-in commit): keep devir notes local by default across all projects
 echo '**/.claude/docs/devir-notes/' >> ~/.config/git/ignore   # commit a note explicitly with: git add -f
@@ -129,7 +157,10 @@ Hook wiring lives in [`settings.example.json`](settings.example.json) (`UserProm
 The deep docs are currently in Turkish (the operational skills are authored in Turkish, which
 is the live, working setup):
 
-- [`docs/workflow.md`](docs/workflow.md) *(Turkish)* — the full workflow: who triggers what and
+- [`docs/architecture.md`](docs/architecture.md) *(Turkish)* — the umbrella: the four layers
+  (skills / agents / workflows / hooks) and how the **devir** and **adversarial-review** subsystems
+  share them.
+- [`docs/workflow.md`](docs/workflow.md) *(Turkish)* — the full devir workflow: who triggers what and
   when, what runs in the background and why (with diagrams).
 - [`docs/fable-comparison.md`](docs/fable-comparison.md) *(Turkish)* — an honest, evidence-based
   comparison of this orchestration approach with Anthropic Fable.
