@@ -147,6 +147,7 @@ def main():
         c = ctx(out)
         check("S1 startup/0-not → 'açık devir notu yok'", "açık devir notu yok" in c, c[:160])
         check("S1 exit 0", rc == 0)
+        check("S1 aday yokken arşiv advisory görünmez", "Arşiv adayı" not in c, c[:160])
 
         # S2: 1 open note matching branch
         write_note(nd, "2026-06-13-feature-login-aaa111", "feature/login", repo,
@@ -199,6 +200,27 @@ def main():
         out, _, _ = run_hook("devir-sessionstart.py", {"source": "startup", "cwd": repo})
         c = ctx(out)
         check("S7 consumed not banner'a girmiyor", "eski iş" not in c, c[:200])
+
+        # S8 (v2.4): arşiv-adayı advisory — count-only, NON-DESTRUCTIVE
+        # S7'den sonra ccc333 consumed → spent=1; tüm not mtime'ları taze → stale=0
+        out, _, _ = run_hook("devir-sessionstart.py", {"source": "startup", "cwd": repo})
+        c = ctx(out)
+        check("S8 advisory: consumed not 'arşiv adayı' sayılır",
+              "Arşiv adayı" in c and "1 consumed/superseded" in c, c[:260])
+        check("S8 advisory non-destructive (consumed not hâlâ diskte)",
+              os.path.isfile(os.path.join(nd, "2026-06-13-feature-login-ccc333.md")), "ccc333")
+        # S8b: bayat (mtime >ARCHIVE_ADVISORY_DAYS) open not → stale kovasına girer (ipucu, gizlemez)
+        ddd = os.path.join(nd, "2026-06-13-feature-login-ddd444.md")
+        write_note(nd, "2026-06-13-feature-login-ddd444", "feature/login", repo, "open", "bayat iş")
+        old = time.time() - 31 * 86400
+        os.utime(ddd, (old, old))
+        out, _, _ = run_hook("devir-sessionstart.py", {"source": "startup", "cwd": repo})
+        c = ctx(out)
+        check("S8b advisory: >14g dokunulmamış open not stale sayılır",
+              "open/draft >14g" in c, c[:280])
+        check("S8b bayat not hâlâ banner'da (yaş-cutoff inject'i kesmez)",
+              "bayat iş" in c or "BİRDEN FAZLA" in c, c[:280])
+        os.remove(ddd)  # sonraki senaryoları etkilemesin
 
         # ================= autotrigger =================
         print("\n== devir-autotrigger.py ==")

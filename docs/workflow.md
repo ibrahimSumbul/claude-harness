@@ -167,6 +167,7 @@ Gerekçe, paralel-conflict tasarımı ve `/devir` ile karşılaştırma:
 | `/devir` yazar | `devir` skill (Faz 0-8: state yakala → L1+L2 → handoff → commit) | İstendiğinde, ~260k civarı. Model **otomatik çağıramaz** (`disable-model-invocation: true`). |
 | `/devir-resume` (veya "resume", "kaldığımız yerden devam", "hand on") | `devir-resume` skill (not seç → staleness → özet → çoklu ise SOR → onayla → uygula) | Fresh session başında, devam etmek için. Manuel-only. |
 | `/devir-land` (veya "land et", "biten dilimi indir", "bitti commit+push", "ilgili PR'a indir") | `devir-land` skill (DONE GATE → cerrahi staging → commit trailer'sız → fetch+rebase-before-push, force YOK → conflict'te Opus supervisor verdict gate) | Kapalı, **BİTMİŞ** bir dilim sınırdan **ÖNCE** bittiğinde, **AYNI session**'da. Manuel-only (`disable-model-invocation: true`). **Not/memory'ye dokunmaz** — süreklilik YOK. Yarım iş → `/devir`. |
+| `/devir-archive` (veya "devir notlarını arşivle", "eski/harcanmış notları temizle", "arşiv adaylarını taşı") | `devir-archive` skill (adayları kovala — spent=consumed/superseded + stale=open/draft >14g → SOR → seçilenleri `archive/`'e **`mv`**) | Banner "🗄️ arşiv adayı" ipucundan sonra, dizin hijyeni için. Manuel-only (`disable-model-invocation: true`). **Non-destructive** (asla `rm`; geri-dönülebilir), taze open/draft'a dokunmaz, her taşıma onaylı. |
 | Herhangi bir prompt gönderir | `devir-autotrigger.py` (UserPromptSubmit) önce çalışır | Her prompt; yalnızca transcript ≥260k ise ve refire penceresi izin veriyorsa nudge enjekte eder. |
 | `/compact` (manuel compaction) | `devir-precompact.py` (`trigger=manual`) → sonra `devir-sessionstart.py` (`source=compact`) | Manuel compaction'da: dump + draft yazılır, sonra RESUME geri enjekte edilir. |
 | Model-invocable skill çağırır (`/code-review`, `/simplify`, `/verify`, …) | İlgili skill | İsimle veya modelin trigger eşleşmesiyle (devir-dışı skill'ler). |
@@ -178,7 +179,7 @@ Gerekçe, paralel-conflict tasarımı ve `/devir` ile karşılaştırma:
 | Token ~260k'yı aşar | `devir-autotrigger.py` (UserPromptSubmit) `additionalContext` enjekte eder | Prompt'ta, transcript ≥260k ve bu session'da daha önce ateşlenmediyse (veya +20k birikti) | ~300k degradation bölgesinden önce temiz `/devir` devri öner. **Advisory — skill'i zorlayamaz** (Anthropic #43733). |
 | Compaction başlamak üzere | `devir-precompact.py` (PreCompact) | Her compaction'dan hemen önce | Model işbirliği **gerekmeden** canlı git state'i koru: her zaman ephemeral dump + (repo varsa & `open` not yoksa) git-tracked **draft** not. Advisory nudge'ın boşluğunu kapatır. |
 | Compaction sonrası yeni context | `devir-sessionstart.py` (`source=compact`) | Compaction fresh context üretince | İnsan-yok recovery: en iyi notun `▶ RESUME`'unu auto-inject (yoksa ephemeral dump). Çoklu branch açık not varsa **otomatik seçmez**, `/devir-resume` der. |
-| Session startup / resume | `devir-sessionstart.py` (`source=startup`/`resume`) | Session başlar/devam ederken (`clear` değil) | Durum banner'ı: worktree için açık not sayısı. 1 → RESUME özeti + `/devir-resume` öner; ≥2 → **SOR** (sessizce seçmez/consume etmez). |
+| Session startup / resume | `devir-sessionstart.py` (`source=startup`/`resume`) | Session başlar/devam ederken (`clear` değil) | Durum banner'ı: worktree için açık not sayısı. 1 → RESUME özeti + `/devir-resume` öner; ≥2 → **SOR** (sessizce seçmez/consume etmez). Ayrıca **arşiv adayı** (consumed/superseded + >14g dokunulmamış open/draft) varsa count-only `🗄️` ipucu → `/devir-archive` (non-destructive; otomatik taşımaz). |
 | Her session (bu proje) | Auto-memory recall (hook değil — harness özelliği) | Session başında | `MEMORY.md` index context'e enjekte; tekil memory dosyaları alaka ile okunur. **Birincil (L1) süreklilik.** |
 | Eski marker birikimi | `cleanup_old_markers()` (autotrigger içinde) | Bir UserPromptSubmit ateşlemesine binerek | `.devir-state/`'te 7 günden eski `.fired`/`.consumed.md`/`.dump.md` marker'larını sil → sınırsız büyümesin. |
 
@@ -240,6 +241,7 @@ sequenceDiagram
 | `CLEANUP_DAYS` | `7` | `autotrigger.py:20` | `.devir-state` marker temizliği |
 | `NOTE_FRESH_HOURS` | `6` | `autotrigger.py:21` | Bu süre içinde taze not yoksa "not oluştur" hatırlat |
 | `INJECT_CAP` | `1_400` | `sessionstart.py:23` | Enjekte edilen `additionalContext` max karakter |
+| `ARCHIVE_ADVISORY_DAYS` | `14` | `sessionstart.py:24` | Banner "🗄️ arşiv adayı" eşiği — open/draft bu süreden uzun dokunulmadıysa count-only ipucu (non-destructive; `/devir-archive`) |
 | `STATUS_RANK` | `{draft:0, open:1, consumed:2, superseded:-1}` | `devir_common.py:25` | Resume precedence |
 | `DEFAULT/WIDE_WINDOW` | `262_144` / `1_048_576` | `devir_common.py:17-18` | Transcript kuyruk okuma penceresi |
 | `--max-lines` | `200` | `devir_memory.py:126` | Index ≤200 satır (her session yüklenir); uyarır, sessizce kesmez |

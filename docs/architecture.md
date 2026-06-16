@@ -16,7 +16,7 @@ modelliyor: **devir** (süreklilik) ve **adversarial-review** (titizlik). İkisi
 
 | Katman | Dizin | Ne | Kim çalıştırır |
 |---|---|---|---|
-| **Skills** | `skills/*/SKILL.md` | İnce **tetik** + ince mantık; `disable-model-invocation: true` (yalnız kullanıcı) | Kullanıcı (`/devir`, `/devir-resume`, `/devir-land`, `/adversarial-review`) |
+| **Skills** | `skills/*/SKILL.md` | İnce **tetik** + ince mantık; `disable-model-invocation: true` (yalnız kullanıcı) | Kullanıcı (`/devir`, `/devir-resume`, `/devir-land`, `/devir-archive`, `/adversarial-review`) |
 | **Agents** | `agents/*.md` | Subagent **özel prompt'ları** (frontmatter `name`/`model`/`tools`) — rol-başına model | Workflow ya da `Task`/`agentType` |
 | **Workflows** | `workflows/*.js` | **Deterministik orchestration** (fan-out/loop/conditional) — ağır iş burada | `Workflow` aracı (skill'den) |
 | **Hooks** | `hooks/devir-*.py` | **Advisory güvenlik ağı** (L3) — model işbirliği gerekmeden mekanik | Claude Code event'leri (`settings.json`) |
@@ -39,6 +39,7 @@ Context ~300k degradation bölgesine girmeden state'i kalıcı katmanlara flush 
 - `/devir` — yarım iş ~260k'ya çarpınca: state'i yakala → L1+L2 yaz → handoff → opt-in commit.
 - `/devir-resume` — fresh session'da: not seç → staleness (git-drift) → onay → devam (**handon**).
 - `/devir-land` — biten kapalı dilimi aynı session'da indir (DONE GATE → cerrahi pathspec → rebase-before-push).
+- `/devir-archive` — harcanmış/bayat notları `archive/`'e MANUEL + non-destructive (`mv`, asla `rm`) taşı; SessionStart "🗄️ arşiv adayı" banner'ının karşılığı.
 
 Detay + diyagramlar: [`workflow.md`](workflow.md). Tasarım gerekçeleri: [`../skills/devir/DESIGN.md`](../skills/devir/DESIGN.md).
 
