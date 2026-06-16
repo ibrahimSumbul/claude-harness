@@ -35,6 +35,7 @@ CONST_SOURCES = [
     ("devir-autotrigger.py", "CLEANUP_DAYS"),
     ("devir-autotrigger.py", "NOTE_FRESH_HOURS"),
     ("devir-sessionstart.py", "INJECT_CAP"),
+    ("devir-sessionstart.py", "ARCHIVE_ADVISORY_DAYS"),
     ("devir_common.py", "DEFAULT_WINDOW"),
     ("devir_common.py", "WIDE_WINDOW"),
 ]

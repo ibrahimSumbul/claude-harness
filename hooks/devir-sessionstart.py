@@ -11,7 +11,7 @@
 Birincil süreklilik yine L1 memory auto-recall'da; bu ek ağ. Her hata → boş çıktı (session'ı kırma).
 Mimari: ~/.claude/skills/devir/DESIGN.md
 """
-import sys, os, json
+import sys, os, json, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
@@ -21,8 +21,10 @@ except Exception:
 
 STATE_DIR = os.path.expanduser("~/.claude/.devir-state")
 INJECT_CAP = 1_400             # enjekte edilen metin max karakter
-# Not: open/draft statüsü lifecycle sinyali; git-tracked notlara yaş cutoff'u UYGULANMAZ
-# (haftalarca açık kalan bir branch'in notu hâlâ geçerli olabilir).
+ARCHIVE_ADVISORY_DAYS = 14     # banner ipucu eşiği: open/draft bu süreden uzun dokunulmadıysa "arşiv adayı"
+# Not: open/draft statüsü lifecycle sinyali; nota INJECT/suppress için yaş cutoff'u UYGULANMAZ
+# (haftalarca açık kalan bir branch'in notu hâlâ geçerli olabilir). ARCHIVE_ADVISORY_DAYS yalnız
+# count-only "arşiv adayı" BANNER İPUCU için kullanılır — hiçbir notu gizlemez/taşımaz/inject'i kesmez.
 
 
 def emit(context):
@@ -88,6 +90,48 @@ def worktree_notes(cwd):
     return res
 
 
+def archive_candidates(cwd):
+    """Arşiv adayı notları say (count-only, NON-DESTRUCTIVE — hiçbir şey taşımaz/gizlemez).
+    İki kova: spent = consumed/superseded (harcanmış, kesin aday); stale = open/draft ama
+    mtime ARCHIVE_ADVISORY_DAYS'ten eski (bayat — yalnız İPUCU; inject/precedence'ı etkilemez).
+    Tüm statüler taranır (archive/ alt-dizini scan_notes'ta zaten hariç). Hata → (0, 0)."""
+    if not dc:
+        return 0, 0
+    try:
+        notes = dc.scan_notes(cwd, statuses=None)   # statuses=None → filtre yok, tüm notlar
+        now = time.time()
+    except Exception:
+        return 0, 0
+    cutoff = ARCHIVE_ADVISORY_DAYS * 86400
+    spent = stale = 0
+    for n in notes:
+        st = (n["fm"].get("status") or "").lower()
+        if st in ("consumed", "superseded"):
+            spent += 1
+        elif st in ("open", "draft"):
+            mt = n.get("mtime", 0)
+            if mt and (now - mt) > cutoff:
+                stale += 1
+    return spent, stale
+
+
+def archive_advisory_line(cwd):
+    """Banner'a eklenecek tek-satır arşiv ipucu (aday yoksa boş). Asla yıkıcı değil."""
+    try:
+        spent, stale = archive_candidates(cwd)
+    except Exception:
+        return ""
+    if not (spent or stale):
+        return ""
+    parts = []
+    if spent:
+        parts.append(f"{spent} consumed/superseded")
+    if stale:
+        parts.append(f"{stale} open/draft >{ARCHIVE_ADVISORY_DAYS}g dokunulmamış")
+    return ("\n\n🗄️ Arşiv adayı: " + " + ".join(parts)
+            + " → `/devir-archive` ile temizle (manuel, non-destructive).")
+
+
 def read_dump(path):
     try:
         with open(path, "r", errors="ignore") as f:
@@ -148,9 +192,10 @@ def main():
     # --- Yeni/devam session: durum banner'ı (consume ETME) ---
     if source in ("startup", "resume"):
         notes = worktree_notes(cwd)
+        adv = archive_advisory_line(cwd)   # count-only arşiv ipucu (aday yoksa boş)
         if not notes:
             emit("🧭 DEVIR: bu branch için açık devir notu yok. (Süreklilik L1 memory'de — "
-                 "resume için memory session-state'e bak.)")
+                 "resume için memory session-state'e bak.)" + adv)
             return
         if len(notes) == 1:
             fm, text = dc.read_note(notes[0]["path"])
@@ -161,14 +206,14 @@ def main():
                 if len(resume) > INJECT_CAP:
                     resume = resume[:INJECT_CAP] + "\n…(kısaltıldı)"
                 head += "\n\n" + resume
-            emit(head)
+            emit(head + adv)
             return
         # ≥2 → seçtirme, SOR
         lines = ["🧭 DEVIR: bu repoda BİRDEN FAZLA açık not var (mevcut branch'le eşleşme yok) — `/devir-resume` ile seç (sessizce seçme):"]
         for n in notes[:6]:
             fm = n["fm"]
             lines.append(f" • `{fm.get('branch','?')}`  ({fm.get('status','?')}, id `{fm.get('id','?')}`, {fm.get('created','?')})")
-        emit("\n".join(lines))
+        emit("\n".join(lines) + adv)
         return
 
 
