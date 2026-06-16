@@ -67,6 +67,8 @@ const tight = budget.total && budget.remaining() < 150_000
 const SKEPTICS = tight ? 1 : 3          // bulgu başına şüpheci sayısı
 const MAX_ROUNDS = tight ? 2 : 4        // loop-until-dry üst sınırı (runaway guard)
 const DRY_STREAK = 2                     // kaç ardışık boş tur sonrası dur
+// Doğrulama modu etiketi: SKEPTICS=1 iken "çoğunluk" yanlış-ad → "tek-şüpheci (veto)".
+const VERDICT_MODE = SKEPTICS === 1 ? 'tek-şüpheci (veto)' : `çoğunluk/${SKEPTICS}`
 
 const key = (f) => `${(f.file || '').toLowerCase()}:${f.line}:${(f.title || '').toLowerCase().slice(0, 60)}`
 
@@ -113,6 +115,13 @@ Yeni, gerçek, tekrarlanabilir bulgular döndür; yoksa boş liste.`,
     ).then((r) => ({ key: d.key, findings: (r && r.findings) || [] })),
   ))
 
+  // Sessiz-hata guard: parallel() hata veren bulucuyu null yapar; filter(Boolean) onu
+  // sessizce yutardı. Hangi eksenin düştüğünü görünür kıl (transient ≠ "bulgu yok").
+  const failedFinders = DIMENSIONS.filter((_, i) => !batches[i]).map((d) => d.key)
+  if (failedFinders.length) {
+    log(`⚠ Tur ${round}: bulucu ajan hata verdi (transient): ${failedFinders.join(', ')} — bu eksen(ler)in bu turki bulguları atlandı.`)
+  }
+
   const fresh = []
   for (const b of batches.filter(Boolean)) {
     for (const f of b.findings) {
@@ -139,29 +148,40 @@ ${f.detail}`,
       ),
     )).then((votes) => {
       const v = votes.filter(Boolean)
+      if (v.length === 0) {
+        // Hiçbir şüpheci verdict döndürmedi (hepsi transient hata) → bulguyu SESSİZCE DÜŞÜRME.
+        // 'unverified' işaretle ve ayakta tut: review için sessiz false-negative en kötüsü.
+        return { finding: f, survives: true, unverified: true, votes: [], refutedCount: 0 }
+      }
       const refuted = v.filter((x) => x.refuted).length
-      const survives = v.length > 0 && refuted < Math.ceil(v.length / 2) // çoğunluk çürütemedi
+      const survives = refuted < Math.ceil(v.length / 2) // ayakta: çürütenler < yarı (1 şüpheci → tek veto)
       return { finding: f, survives, votes: v, refutedCount: refuted }
     }),
   ))
 
+  let unverifiedThisRound = 0
   for (const j of judged.filter(Boolean)) {
-    if (j.survives) confirmed.push({ ...j.finding, votes: j.votes })
+    if (!j.survives) continue
+    if (j.unverified) unverifiedThisRound++
+    confirmed.push({ ...j.finding, votes: j.votes, unverified: !!j.unverified })
   }
-  log(`Tur ${round}: ${confirmed.length} doğrulanmış bulgu (toplam).`)
+  if (unverifiedThisRound) {
+    log(`⚠ Tur ${round}: ${unverifiedThisRound} bulgu DOĞRULANAMADI (şüpheciler hata verdi) → düşürülmedi, 'unverified' işaretlendi.`)
+  }
+  log(`Tur ${round}: ${confirmed.length} bulgu ayakta (toplam; doğrulama modu: ${VERDICT_MODE}).`)
 }
 
 // ── Faz 4: Synthesize ───────────────────────────────────────────────────────
 phase('Synthesize')
 if (confirmed.length === 0) {
   log('Doğrulanmış bulgu yok — temiz.')
-  return { confirmed: [], rounds: round, scope, report: '✅ Adversarial review: çoğunluk-doğrulamasından geçen bulgu yok.' }
+  return { confirmed: [], rounds: round, scope, report: `✅ Adversarial review: doğrulamadan (${VERDICT_MODE}) geçen bulgu yok.` }
 }
 
 const synth = await agent(
   `Bir adversarial code-review'ın doğrulanmış bulgularından senior bir rapor yaz (abartısız, eyleme dönük).
 HEDEF: ${target}
-DOĞRULANMIŞ BULGULAR (her biri çoğunluk şüpheciyi geçti):
+DOĞRULANMIŞ BULGULAR (doğrulama modu: ${VERDICT_MODE}; "unverified":true olanlar şüpheci hatası nedeniyle doğrulanamadı — raporda AYRI işaretle):
 ${JSON.stringify(confirmed.map(({ votes, ...f }) => f), null, 2)}
 
 severity'ye göre grupla (high önce). Her bulgu için: konum, sorun, önerilen düzeltme. Üstte 1-2 cümle özet.`,
