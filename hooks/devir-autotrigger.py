@@ -52,14 +52,19 @@ def cleanup_old_markers():
 
 
 def has_recent_note(cwd):
-    """Bu worktree için son NOTE_FRESH_HOURS içinde yazılmış açık not var mı?"""
+    """Bu branch için son NOTE_FRESH_HOURS içinde yazılmış açık not var mı?
+    v2.3: notes_dir ana checkout'a çapalı (paylaşılan) → worktree-yolu zayıf sinyal;
+    birincil = branch-match (note.branch == mevcut branch), worktree-yolu yedek."""
     if not dc:
         return False
     try:
         cutoff = time.time() - NOTE_FRESH_HOURS * 3_600
+        cur = dc.git(["branch", "--show-current"], cwd)
         for n in dc.scan_notes(cwd, statuses=("open", "draft")):
-            wt = (n["fm"].get("worktree") or "")
-            if dc.under_worktree(cwd, wt) and n["mtime"] >= cutoff:
+            if n["mtime"] < cutoff:
+                continue
+            nb = (n["fm"].get("branch") or "")
+            if (cur and nb == cur) or dc.under_worktree(cwd, n["fm"].get("worktree") or ""):
                 return True
     except Exception:
         return False

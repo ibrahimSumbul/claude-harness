@@ -10,11 +10,11 @@ allowed-tools: Bash(git:*), Bash(gh:*), Read, Edit, Grep
 Yeni session'da, işe atlamadan ÖNCE: doğru notu seç, ne anladığını doğrula, **belirsizlikte SOR**, onay al. Mimari: [`../devir/DESIGN.md`](../devir/DESIGN.md).
 
 ## Faz 1 — Notları bul
-- Dizin: `<repo>/.claude/docs/devir-notes/` (`git rev-parse --show-toplevel`). Yoksa → Faz 5 (fallback).
+- Dizin: `<ana-worktree>/.claude/docs/devir-notes/` — **paylaşılan + kalıcı** (`git rev-parse --git-common-dir` ebeveyni; linked worktree'de bile ana checkout). Yoksa → Faz 5 (fallback). Notlar worktree prune'unda **kaybolmaz**; tüm worktree'ler aynı dizini görür.
 - `status: open|draft` notları tara (archive/ + consumed/superseded hariç). Frontmatter oku (`branch, worktree, created, id, covers_since`).
-- **Filtre sırası (DESIGN §4b):**
-  1. **worktree-match (birincil):** cwd, `note.worktree` altında mı?
-  2. boşsa → repo'daki tüm açık notlara genişle (cross-worktree/makine) + Faz 4'te SOR.
+- **Filtre sırası (DESIGN §4b — paylaşılan dizin):** notlar tek dizinde toplandığı için worktree-yolu artık **zayıf** sinyal; birincil = branch.
+  1. **branch-match (birincil):** `note.branch` == mevcut branch (`git branch --show-current`)? (paylaşılan dizinde en güvenilir eşleştirme.)
+  2. eşleşme yoksa → aynı ana-repodaki tüm açık notlara genişle (cross-worktree/makine) + Faz 4'te SOR.
 - **Precedence:** `open` > `draft`; aynı branch için `open` varsa `draft` superseded (gösterme/uyar). Daha yeni `created` öne.
 
 ## Faz 2 — Seçim

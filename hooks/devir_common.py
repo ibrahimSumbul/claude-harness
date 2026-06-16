@@ -78,6 +78,21 @@ def repo_root(cwd):
     return git(["rev-parse", "--show-toplevel"], cwd) or ""
 
 
+def main_worktree_root(cwd):
+    """Ana (birincil) worktree kökü — paylaşılan + KALICI. Linked worktree İÇİNDEN
+    çağrılsa bile ana checkout'u verir; böylece L2 notlar (gitignored, commit edilmez)
+    worktree prune'unda KAYBOLMAZ ve tüm worktree'ler tek not dizinini görür.
+    `--git-common-dir` ana repo'nun .git'ini döndürür (linked worktree'de bile); ebeveyni =
+    ana worktree kökü. Çözülemezse repo_root'a (mevcut worktree) düş — güvenli degrade."""
+    common = git(["rev-parse", "--git-common-dir"], cwd)
+    if not common:
+        return repo_root(cwd)
+    if not os.path.isabs(common):
+        common = os.path.join(cwd, common)
+    parent = os.path.dirname(os.path.normpath(common))
+    return parent or repo_root(cwd)
+
+
 # ---------------------------------------------------------------- notes (L2)
 def slugify(text):
     if not text:
@@ -87,8 +102,10 @@ def slugify(text):
 
 
 def notes_dir(cwd):
-    """<repo>/.claude/docs/devir-notes — repo yoksa ''."""
-    root = repo_root(cwd)
+    """<ana-worktree>/.claude/docs/devir-notes — paylaşılan + KALICI. Repo yoksa ''.
+    `main_worktree_root` ile çapalanır: linked worktree'de bile ana checkout'a yazılır →
+    worktree prune'unda not kaybolmaz; tüm worktree'ler aynı dizini görür (cross-worktree resume)."""
+    root = main_worktree_root(cwd)
     if not root:
         return ""
     return os.path.join(root, ".claude", "docs", "devir-notes")
