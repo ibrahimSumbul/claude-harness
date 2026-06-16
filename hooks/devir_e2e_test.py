@@ -156,14 +156,24 @@ def main():
         check("S2 startup/1-not → '1 açık not'", "1 açık not" in c, c[:160])
         check("S2 RESUME satırı enjekte edildi", "login testini koştur" in c, c[:200])
 
-        # S3: ikinci open note farklı branch → çoklu
+        # S3 (v2.3 branch-match): login'deyken farklı-branch (signup) notu eklensin →
+        # paylaşılan dizinde banner branch-match ile YALNIZ mevcut-branch notunu gösterir
+        # (çapraz-branch notuyla karışmaz — eski worktree-match'te ikisi de listeleniyordu).
         write_note(nd, "2026-06-13-feature-signup-bbb222", "feature/signup", repo,
                    "open", "signup formu")
         out, _, _ = run_hook("devir-sessionstart.py", {"source": "startup", "cwd": repo})
         c = ctx(out)
-        check("S3 startup/2-not → 'BİRDEN FAZLA'", "BİRDEN FAZLA" in c, c[:160])
-        check("S3 sessizce seçmiyor (her iki branch listelenir)",
+        check("S3 branch-match: çakışan branch notu varken yalnız mevcut-branch notu",
+              "1 açık not" in c and "login testini koştur" in c and "signup formu" not in c, c[:240])
+
+        # S3b: mevcut branch hiçbir notla eşleşmiyor + ≥2 açık not → BİRDEN FAZLA, sessizce seçmez
+        git(["checkout", "-q", "-b", "feature/none"], repo)
+        out, _, _ = run_hook("devir-sessionstart.py", {"source": "startup", "cwd": repo})
+        c = ctx(out)
+        check("S3b eşleşme-yok/çoklu → 'BİRDEN FAZLA'", "BİRDEN FAZLA" in c, c[:160])
+        check("S3b sessizce seçmiyor (notlar listelenir)",
               "feature/login" in c and "feature/signup" in c, c[:240])
+        git(["checkout", "-q", "feature/login"], repo)
 
         # S4: compact, mevcut branch=feature/login → o notu auto-inject
         out, _, _ = run_hook("devir-sessionstart.py", {"source": "compact", "cwd": repo})

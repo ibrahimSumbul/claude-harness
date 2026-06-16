@@ -63,22 +63,24 @@ def extract_section(text, names):
 
 
 def worktree_notes(cwd):
-    """Bu worktree için açık (open/draft) notlar, open önce sonra mtime DESC."""
+    """Bu branch için açık (open/draft) notlar, open önce sonra mtime DESC.
+    v2.3: notes_dir ana checkout'a çapalı → tüm worktree'ler tek paylaşılan dizini görür;
+    worktree-yolu artık zayıf sinyal, birincil = branch-match (bir branch tek worktree'de
+    checkout edilebilir). Branch eşleşmesi yoksa tüm açık notlara düş (banner sayımı +
+    ≥2'de-SOR korunur → cross-worktree resume görünür)."""
     if not dc:
         return []
-    res = []
     try:
-        for n in dc.scan_notes(cwd, statuses=("open", "draft")):
-            if dc.under_worktree(cwd, n["fm"].get("worktree") or ""):
-                res.append(n)
+        all_notes = dc.scan_notes(cwd, statuses=("open", "draft"))
     except Exception:
         return []
-    # nested worktree: parent worktree'nin notlarını cross-match etme — kendi repo köküne öncelik
+    res = list(all_notes)
     try:
-        own = os.path.realpath(dc.repo_root(cwd) or cwd)
-        exact = [n for n in res if os.path.realpath(n["fm"].get("worktree") or "") == own]
-        if exact:
-            res = exact
+        cur = dc.git(["branch", "--show-current"], cwd)
+        if cur:
+            bm = [n for n in all_notes if (n["fm"].get("branch") or "") == cur]
+            if bm:
+                res = bm
     except Exception:
         pass
     res.sort(key=lambda x: (dc.STATUS_RANK.get((x["fm"].get("status") or "").lower(), 0), x["mtime"]),
@@ -147,7 +149,7 @@ def main():
     if source in ("startup", "resume"):
         notes = worktree_notes(cwd)
         if not notes:
-            emit("🧭 DEVIR: bu worktree için açık devir notu yok. (Süreklilik L1 memory'de — "
+            emit("🧭 DEVIR: bu branch için açık devir notu yok. (Süreklilik L1 memory'de — "
                  "resume için memory session-state'e bak.)")
             return
         if len(notes) == 1:
@@ -162,7 +164,7 @@ def main():
             emit(head)
             return
         # ≥2 → seçtirme, SOR
-        lines = ["🧭 DEVIR: bu worktree için BİRDEN FAZLA açık not var — `/devir-resume` ile seç (sessizce seçme):"]
+        lines = ["🧭 DEVIR: bu repoda BİRDEN FAZLA açık not var (mevcut branch'le eşleşme yok) — `/devir-resume` ile seç (sessizce seçme):"]
         for n in notes[:6]:
             fm = n["fm"]
             lines.append(f" • `{fm.get('branch','?')}`  ({fm.get('status','?')}, id `{fm.get('id','?')}`, {fm.get('created','?')})")
