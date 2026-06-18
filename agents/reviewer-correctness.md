@@ -1,6 +1,6 @@
 ---
 name: reviewer-correctness
-description: Değişen kodda DOĞRULUK/mantık hatası avcısı (read-only, Sonnet). Off-by-one, null/undefined, await unutma, yanlış koşul/operatör, kaçırılan edge-case, hatalı error-handling, state/race, yanlış varsayım. Adversarial-review workflow'unun bulucu rollerinden biri; tek başına da `agentType: reviewer-correctness` ile çağrılabilir.
+description: Değişen kodda DOĞRULUK/mantık hatası avcısı (read-only, Sonnet). Off-by-one, null/undefined, await unutma, yanlış koşul/operatör, kaçırılan edge-case, hatalı error-handling, state/race, yanlış varsayım. Adversarial-review workflow'unun bulucu rollerinden biri; tek başına da agentType `reviewer-correctness` ile çağrılabilir.
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---

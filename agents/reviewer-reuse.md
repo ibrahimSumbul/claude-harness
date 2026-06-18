@@ -1,6 +1,6 @@
 ---
 name: reviewer-reuse
-description: Değişen kodda YENİDEN-KULLANIM / sadeleştirme / verimlilik avcısı (read-only, Sonnet). Tekrar eden kod, var olan yardımcıyı yeniden-icat, ölü kod, gereksiz karmaşıklık, N+1 / gereksiz iş, yanlış soyutlama altitüdü. Kalite bulur, hata DEĞİL. Adversarial-review workflow'unun bulucu rollerinden biri; tek başına da `agentType: reviewer-reuse` ile çağrılabilir.
+description: Değişen kodda YENİDEN-KULLANIM / sadeleştirme / verimlilik avcısı (read-only, Sonnet). Tekrar eden kod, var olan yardımcıyı yeniden-icat, ölü kod, gereksiz karmaşıklık, N+1 / gereksiz iş, yanlış soyutlama altitüdü. Kalite bulur, hata DEĞİL. Adversarial-review workflow'unun bulucu rollerinden biri; tek başına da agentType `reviewer-reuse` ile çağrılabilir.
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
