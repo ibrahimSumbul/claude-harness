@@ -1,6 +1,6 @@
 ---
 name: adversarial-review
-description: Değişen kodu çok-eksenli (correctness + security + reuse) ADVERSARIAL incele — bulucular bulur, bağımsız Opus şüpheciler her bulguyu ÇÜRÜTMEYE çalışır, çoğunluk çürütemezse bulgu ayakta kalır (sahte-pozitif öldürme), yeni bulgu bitene kadar loop-until-dry. Ağır iş workflows/adversarial-review.js'de (model-per-role, agents/* özel prompt'ları). Kullanıcı "adversarial review", "şu diff'i derinlemesine incele", "bulguları doğrulat", "review et ve çürüt" derse. Mimari — ../../docs/architecture.md.
+description: Değişen kodu çok-eksenli (correctness + security + reuse) ADVERSARIAL inceler — bulucular bulur, bağımsız Opus şüpheciler her bulguyu çürütmeye çalışır, çoğunluk çürütemezse bulgu kalır (sahte-pozitif öldürme), loop-until-dry. Derin/kritik diff incelemesi için; küçük diff'lerde /code-review yeterli. Ağır iş workflows/adversarial-review.js'de. Mimari — ../../docs/architecture.md.
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Read, Grep
 ---
