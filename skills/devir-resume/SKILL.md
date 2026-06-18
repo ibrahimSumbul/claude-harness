@@ -35,13 +35,16 @@ Seçilen notu körü körüne güvenme. Drift'i hesapla:
   - Değil → zaman-bazlı: `git --no-pager log --oneline --since="<note.created>" | wc -l`.
   - **`2>/dev/null` ile hatayı yutup 0 = FRESH SANMA** — komut başarısızsa "drift bilinmiyor" de.
 - `git status --short` → kirli/değişen dosyalar · mevcut branch ≠ `note.branch`? (divergence)
-- Verdict (tek satır): **FRESH** (0 commit, aynı branch) · **SLIGHTLY STALE** (1-2) · **STALE** (≥3 / branch değişmiş / divergence / **drift bilinmiyor**).
+- **Worktree-uyumu (kaynak-çoğaltma koruması):** "doğru yerde miyim?" sinyali **birincil = worktree-yolu** (uncommitted iş + repo aynası orada yaşar; branch İKİNCİL — not, `branch` ≠ o worktree'nin branch'i olacak şekilde ayrı çalışma-yeri/source-of-truth belirtebilir, bu meşru). `git rev-parse --show-toplevel` ↔ `note.worktree`:
+  - **Eşit** → doğru yerdesin, sessiz geç (branch `note.branch`'ten farklıysa en fazla tek-satır not; redirect VERME).
+  - **Farklı / `note.worktree` prune** → Faz 4'te NET redirect (uydurma; notun `worktree`/`branch` + belirtilmişse "source of truth"/çalışma-yerini yansıt): *"Bu iş `<note.worktree>` worktree'sinde devam etmeli; bu session farklı yerde (`<current>`). Kaynakları ÇOĞALTMA — ya oraya geç ya da oradaki repo aynası + global/source-of-truth kurulumu hedefle; bu worktree'ye yazma."* (prune ise: branch-match'e düş + source-of-truth'tan per-file re-sync öner.)
+- Verdict (tek satır): **FRESH** (0 commit, doğru worktree) · **SLIGHTLY STALE** (1-2 commit) · **STALE** (≥3 / dünya kaymış / **drift bilinmiyor**) · **MISPLACED** (zaman olarak taze ama `toplevel ≠ note.worktree` — yukarıdaki redirect'i ver, "dünya kaymış" deme).
 - STALE ise: "Not yazıldığından beri dünya kaymış (<özet>). Körü körüne devam yerine önce yeniden doğrulayalım mı?" → kullanıcıya bırak.
 
 ## Faz 4 — Anladığını söyle + onay (handon davranışı)
 İşe başlamadan, kısa ve net ver:
 - **Nottan ne anladım** (1-2 cümle özet — Hedef + nerede kalınmış)
-- **Mevcut durum:** branch, uncommitted, açık PR, **staleness verdict**
+- **Mevcut durum:** branch, uncommitted, açık PR, **staleness verdict** (MISPLACED ise Faz 3'teki **kaynak-çoğaltma redirect satırını** buraya koy)
 - **Nasıl devam etmek istiyorum** (3-5 adım, notun ▶ RESUME'undan)
 - Sonra: *"Onaylıyor musun, böyle devam edeyim mi?"* — **onay gelene kadar** kod değiştirme / migration / commit / PR YAPMA.
 

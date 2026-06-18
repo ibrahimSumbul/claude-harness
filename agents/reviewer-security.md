@@ -1,6 +1,6 @@
 ---
 name: reviewer-security
-description: Değişen kodda GÜVENLİK açığı avcısı (read-only, Sonnet). Injection (SQL/komut/path), secret sızıntısı, kimlik/yetki atlatma, güvensiz deserialize, SSRF, kontrolsüz girdi, kripto yanlış kullanımı, ReDoS. Adversarial-review workflow'unun bulucu rollerinden biri; tek başına da `agentType: reviewer-security` ile çağrılabilir.
+description: Değişen kodda GÜVENLİK açığı avcısı (read-only, Sonnet). Injection (SQL/komut/path), secret sızıntısı, kimlik/yetki atlatma, güvensiz deserialize, SSRF, kontrolsüz girdi, kripto yanlış kullanımı, ReDoS. Adversarial-review workflow'unun bulucu rollerinden biri; tek başına da agentType `reviewer-security` ile çağrılabilir.
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---

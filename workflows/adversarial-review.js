@@ -15,6 +15,8 @@ const SCOPE = {
   properties: {
     changedFiles: { type: 'array', items: { type: 'string' } },
     diffDigest: { type: 'string', description: 'Değişikliğin özlü, satır-referanslı dökümü' },
+    changedLines: { type: 'integer', description: 'Toplam değişen (eklenen+silinen) satır — git diff --shortstat' },
+    fileKinds: { type: 'array', items: { enum: ['code', 'test', 'lockfile', 'generated', 'doc', 'config'] }, description: 'Değişen dosya türleri (benzersiz)' },
     summary: { type: 'string' },
   },
 }
@@ -44,7 +46,7 @@ const VERDICT = {
     refuted: { type: 'boolean' },
     confidence: { type: 'number' },
     reasoning: { type: 'string' },
-    severity_adjustment: { type: 'string' },
+    severity_adjustment: { enum: ['high', 'medium', 'low'], description: 'Bulgu AYAKTA kalıyorsa (refuted=false) ve severity şişikse: önerilen DÜŞÜK hedef severity (yalnızca aşağı). Aksi halde alanı atla.' },
   },
 }
 const REPORT = {
@@ -61,6 +63,8 @@ const DIMENSIONS = [
 const target = (typeof args === 'string' && args.trim())
   ? args.trim()
   : (args && args.target) || 'mevcut branch ile main arasındaki diff (git diff main...HEAD)'
+const MIN_LINES = (args && Number(args.minLines)) || 12
+const FORCE = !!(args && args.force)
 
 // Bütçeye göre ölçekle (budget.total yoksa cömert varsayılan).
 const tight = budget.total && budget.remaining() < 150_000
@@ -70,6 +74,7 @@ const DRY_STREAK = 2                     // kaç ardışık boş tur sonrası du
 // Doğrulama modu etiketi: SKEPTICS=1 iken "çoğunluk" yanlış-ad → "tek-şüpheci (veto)".
 const VERDICT_MODE = SKEPTICS === 1 ? 'tek-şüpheci (veto)' : `çoğunluk/${SKEPTICS}`
 
+const RANK = { high: 3, medium: 2, low: 1 }
 const key = (f) => `${(f.file || '').toLowerCase()}:${f.line}:${(f.title || '').toLowerCase().slice(0, 60)}`
 
 // ── Faz 1: Scope ──────────────────────────────────────────────────────────
@@ -78,7 +83,7 @@ const scope = await agent(
   `Bir adversarial code-review başlatıyoruz. İncelenecek hedef: ${target}.
 Git ile değişikliği tespit et: değişen dosyaların listesini çıkar ve değişikliğin özlü, **satır-referanslı** bir digest'ini hazırla
 (her dosya için neyin değiştiği + en kritik hunk'lar). Bulgu ARAMA — sadece kapsamı netleştir.
-\`git diff\`/\`git --no-pager log\` kullanabilirsin. Değişiklik yoksa changedFiles boş döndür.`,
+\`git diff\`/\`git --no-pager log\` kullanabilirsin. Ayrıca \`git diff --shortstat\` ile toplam değişen satırı (changedLines) ve dosya türlerini (fileKinds: code/test/lockfile/generated/doc/config) çıkar. Değişiklik yoksa changedFiles boş döndür.`,
   { schema: SCOPE, phase: 'Scope', label: 'scope' },
 )
 
@@ -87,6 +92,16 @@ if (!scope || !scope.changedFiles || scope.changedFiles.length === 0) {
   return { confirmed: [], rounds: 0, scope: scope || null, report: 'Değişiklik yok; review atlandı.' }
 }
 log(`Kapsam: ${scope.changedFiles.length} dosya. Bulucular başlıyor (${SKEPTICS} şüpheci/bulgu, ≤${MAX_ROUNDS} tur).`)
+
+// Triviality-gate (yalnız git-sinyali; mekanik koşum YOK). Belirsizse ASLA atlama (güvenli varsayılan).
+const kinds = scope.fileKinds || []
+const onlyTrivial = kinds.length > 0 && kinds.every((k) => ['lockfile', 'generated', 'doc'].includes(k))
+const fewLines = typeof scope.changedLines === 'number' && scope.changedLines < MIN_LINES
+if (!FORCE && (onlyTrivial || fewLines)) {
+  const why = onlyTrivial ? `yalnız ${kinds.join('/')}` : `${scope.changedLines} satır (< ${MIN_LINES})`
+  log(`Diff önemsiz görünüyor (${why}) — derin adversarial review atlandı. (args.force ile zorla.)`)
+  return { confirmed: [], rounds: 0, skipped: 'trivial', scope: { changedFiles: scope.changedFiles, summary: scope.summary }, report: `↩︎ Diff önemsiz (${why}); derin adversarial review atlandı — /code-review yeterli. Zorlamak için args.force.` }
+}
 
 // ── Faz 2+3: loop-until-dry — bul → dedup → çürüt ──────────────────────────
 const seen = new Set()
@@ -155,7 +170,18 @@ ${f.detail}`,
       }
       const refuted = v.filter((x) => x.refuted).length
       const survives = refuted < Math.ceil(v.length / 2) // ayakta: çürütenler < yarı (1 şüpheci → tek veto)
-      return { finding: f, survives, votes: v, refutedCount: refuted }
+      // Severity recalibration: yalnızca-AŞAĞI, çoğunluk-kapılı; tek-şüpheci (veto) modunda UYGULANMAZ.
+      let finding = f
+      if (survives && SKEPTICS >= 2) {
+        const surviving = v.filter((x) => !x.refuted)
+        const tally = {}
+        for (const x of surviving) if (x.severity_adjustment) tally[x.severity_adjustment] = (tally[x.severity_adjustment] || 0) + 1
+        const top = Object.entries(tally).sort((a, b) => b[1] - a[1])[0]
+        if (top && top[1] * 2 > surviving.length && (RANK[top[0]] || 9) < (RANK[f.severity] || 0)) {
+          finding = { ...f, severity: top[0], severityAdjustedFrom: f.severity }
+        }
+      }
+      return { finding, survives, votes: v, refutedCount: refuted }
     }),
   ))
 
@@ -181,7 +207,7 @@ if (confirmed.length === 0) {
 const synth = await agent(
   `Bir adversarial code-review'ın doğrulanmış bulgularından senior bir rapor yaz (abartısız, eyleme dönük).
 HEDEF: ${target}
-DOĞRULANMIŞ BULGULAR (doğrulama modu: ${VERDICT_MODE}; "unverified":true olanlar şüpheci hatası nedeniyle doğrulanamadı — raporda AYRI işaretle):
+DOĞRULANMIŞ BULGULAR (doğrulama modu: ${VERDICT_MODE}; "unverified":true olanlar şüpheci hatası nedeniyle doğrulanamadı — raporda AYRI işaretle; "severityAdjustedFrom" olanlar şüpheci-çoğunluğunca AŞAĞI düzeltildi (X→Y) — bunu belirt):
 ${JSON.stringify(confirmed.map(({ votes, ...f }) => f), null, 2)}
 
 severity'ye göre grupla (high önce). Her bulgu için: konum, sorun, önerilen düzeltme. Üstte 1-2 cümle özet.`,
