@@ -2,7 +2,7 @@
 name: devir-resume
 description: Fresh session'da devir notundan GÜVENLİ devam (handon). Açık not(ları) tara → staleness (git-drift) kontrolü → nottan ne anladığını özetle → birden fazla aday varsa hangisini SOR → onay alınca uygula. Non-destructive (consumed flip geri-dönülebilir, asla silmez). Kullanıcı "resume", "devir notundan başla", "hand on", "kaldığımız yerden devam" derse.
 disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(gh:*), Read, Edit, Grep
+allowed-tools: Bash(git:*), Bash(gh:*), Read, Edit, Grep, EnterWorktree, Agent
 ---
 
 # /devir-resume — Devir notundan güvenli devam (handon)
@@ -37,14 +37,23 @@ Seçilen notu körü körüne güvenme. Drift'i hesapla:
 - `git status --short` → kirli/değişen dosyalar · mevcut branch ≠ `note.branch`? (divergence)
 - **Worktree-uyumu (kaynak-çoğaltma koruması):** "doğru yerde miyim?" sinyali **birincil = worktree-yolu** (uncommitted iş + repo aynası orada yaşar; branch İKİNCİL — not, `branch` ≠ o worktree'nin branch'i olacak şekilde ayrı çalışma-yeri/source-of-truth belirtebilir, bu meşru). `git rev-parse --show-toplevel` ↔ `note.worktree`:
   - **Eşit** → doğru yerdesin, sessiz geç (branch `note.branch`'ten farklıysa en fazla tek-satır not; redirect VERME).
-  - **Farklı / `note.worktree` prune** → Faz 4'te NET redirect (uydurma; notun `worktree`/`branch` + belirtilmişse "source of truth"/çalışma-yerini yansıt): *"Bu iş `<note.worktree>` worktree'sinde devam etmeli; bu session farklı yerde (`<current>`). Kaynakları ÇOĞALTMA — ya oraya geç ya da oradaki repo aynası + global/source-of-truth kurulumu hedefle; bu worktree'ye yazma."* (prune ise: branch-match'e düş + source-of-truth'tan per-file re-sync öner.)
-- Verdict (tek satır): **FRESH** (0 commit, doğru worktree) · **SLIGHTLY STALE** (1-2 commit) · **STALE** (≥3 / dünya kaymış / **drift bilinmiyor**) · **MISPLACED** (zaman olarak taze ama `toplevel ≠ note.worktree` — yukarıdaki redirect'i ver, "dünya kaymış" deme).
+  - **Farklı ama `note.worktree` MEVCUT + ≥%80 eminsen** (worktree `git worktree list`'te kayıtlı · branch orada checkout'lu · uncommitted iş / source-of-truth orada) → **otomatik geç, redirect verip bekleme**: `EnterWorktree path:<note.worktree>` (kayıtlı worktree'ye girer). Harness CWD'yi pinliyorsa düz `cd` kalıcı OLMAZ — `EnterWorktree` kullan. Sonra tek satır bildir: *"`<note.worktree>` worktree'sine geçtim — iş orada (`<branch>` @ `<tip>`)."* (Branch zaten o worktree'de checkout'lu olduğundan buraya checkout edemezsin; geçmek tek doğru harekettir.)
+  - **`note.worktree` prune / belirsiz / <%80 emin** → Faz 4'te NET redirect (uydurma; notun `worktree`/`branch` + belirtilmişse "source of truth"/çalışma-yerini yansıt): *"Bu iş `<note.worktree>` worktree'sinde devam etmeli; bu session farklı yerde (`<current>`). Kaynakları ÇOĞALTMA — ya oraya geç ya da oradaki repo aynası + global/source-of-truth kurulumu hedefle; bu worktree'ye yazma."* (prune ise: branch-match'e düş + source-of-truth'tan per-file re-sync öner.)
+- Verdict (tek satır): **FRESH** (0 commit, doğru worktree) · **SLIGHTLY STALE** (1-2 commit) · **STALE** (≥3 / dünya kaymış / **drift bilinmiyor**) · **MISPLACED** (zaman olarak taze ama `toplevel ≠ note.worktree` — ≥%80 eminsen **otomatik geç** [`EnterWorktree path`], değilsen redirect; "dünya kaymış" deme).
 - STALE ise: "Not yazıldığından beri dünya kaymış (<özet>). Körü körüne devam yerine önce yeniden doğrulayalım mı?" → kullanıcıya bırak.
+
+## Faz 3b — İlgili doküman taraması (Opus subagent — context tasarrufu)
+Not seçildi + staleness biliniyor. **Faz 4 özetinden ÖNCE** canonical doc'ları ana context'e YIĞMA — bir **Opus subagent** dispatch et (agentType `general-purpose` [derin okuma] veya `Explore` [geniş hızlı tarama], `model: opus`). İlgili doc'ları subagent **kendisi okusun**; ana agent yalnız distile özeti alsın → context kazancı + subagent'ın geniş kapasitesi = daha çok doc, daha derin tarama.
+- **Why:** notun Hedef'i + branch + dokunulan alan (subagent'a kontekst sebebini ver — §6 disiplini).
+- **What:** CLAUDE.md §1 okuma sırası + `docs/*` + memory (`MEMORY.md` + topic dosyaları) içinden **yalnız bu işe ilgili** olanları SEÇ → derinlemesine OKU → distile et. İlgisizleri atla.
+- **Format (dikte):** (a) ilgili doc + bölüm/satır pointer'ları (`file:§` / `file:line`); (b) işi bağlayan kararlar/kısıtlar (kilitli mimari · KVKK/PII kapısı · donmuş kontrat · açık borç); (c) ana agent'ın yine de **kendi** okuması gereken 0-3 dosya (yalnız doğrudan düzenlenecekler). Çelişki/belirsizlik → raporla, uydurma.
+- **Tool budget:** read + grep + glob (read-only). **Length cap:** ~40 satır özet (pointer listeleri sayılmaz).
+- Özet Faz 4'ü besler. Doc-only / çok küçük iş / offline subagent → atla (tek-satır not düş).
 
 ## Faz 4 — Anladığını söyle + onay (handon davranışı)
 İşe başlamadan, kısa ve net ver:
 - **Nottan ne anladım** (1-2 cümle özet — Hedef + nerede kalınmış)
-- **Mevcut durum:** branch, uncommitted, açık PR, **staleness verdict** (MISPLACED ise Faz 3'teki **kaynak-çoğaltma redirect satırını** buraya koy)
+- **Mevcut durum:** branch, uncommitted, açık PR, **staleness verdict** (MISPLACED ise: ≥%80 eminsen Faz 3'te zaten otomatik geçtin → tek satır "geçtim" notu yeter; <%80/prune ise **kaynak-çoğaltma redirect satırını** buraya koy)
 - **Nasıl devam etmek istiyorum** (3-5 adım, notun ▶ RESUME'undan)
 - Sonra: *"Onaylıyor musun, böyle devam edeyim mi?"* — **onay gelene kadar** kod değiştirme / migration / commit / PR YAPMA.
 
