@@ -50,6 +50,7 @@ Detay + diyagramlar: [`workflow.md`](workflow.md). Tasarım gerekçeleri: [`../s
 
 ```
 Scope (1 ajan: değişen dosyalar + diff digest)
+  ├─► değişiklik yoksa → erken çık, review atlanır (triviality gate)
   └─► Find  (Sonnet ×3: correctness · security · reuse)        ┐
         └─► dedup (görülenlere karşı)                          │ loop-until-dry
               └─► Verify (Opus ×N şüpheci/bulgu → ÇÜRÜT)       │ (≤4 tur, 2 kuru tur → dur)
