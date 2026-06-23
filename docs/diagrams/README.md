@@ -10,6 +10,8 @@ yalan söyler. Bu dizin hem şemaları hem de o senkronu koruyan kuralı/araçla
 |-------|-------------|--------------------------|
 | [`devir-trigger-flow.svg`](devir-trigger-flow.svg) | Kullanıcı tetikleri (/devir · /devir-resume · /devir-land) vs L3 hook akışı (tek bakışta) | `skills/*/SKILL.md`, `hooks/devir-*.py`, `settings.example.json` |
 | [`devir-trigger-flow.en.svg`](devir-trigger-flow.en.svg) | Yukarıdakinin **İngilizce aynası** (README.md'ye gömülü); kanonik kaynak Türkçe SVG'dir | `devir-trigger-flow.svg` (1:1 çeviri) |
+| [`fable-vs-opus-harness.svg`](fable-vs-opus-harness.svg) | Üç kazanım: daha büyük model (Fable) vs Opus + harness organizasyonu (devir · adversarial-review · supervisor-review); README.tr.md'ye gömülü | `docs/fable-comparison.md`, `docs/architecture.md` |
+| [`fable-vs-opus-harness.en.svg`](fable-vs-opus-harness.en.svg) | Yukarıdakinin **İngilizce aynası** (README.md'ye gömülü); kanonik kaynak Türkçe SVG'dir | `fable-vs-opus-harness.svg` (1:1 çeviri) |
 | `../workflow.md` (Mermaid ×3) | Mimari · tam lifecycle · güvenlik-ağı sequence | `skills/devir/*`, `skills/devir-resume/SKILL.md`, `skills/devir-land/SKILL.md`, `hooks/*` |
 
 > `devir-trigger-flow.svg` **standalone**'dur (inline hex, her yerde render olur — GitHub/tarayıcı).
@@ -17,6 +19,10 @@ yalan söyler. Bu dizin hem şemaları hem de o senkronu koruyan kuralı/araçla
 >
 > `devir-trigger-flow.en.svg`, Türkçe SVG'nin **birebir İngilizce aynasıdır** (README.md'ye gömülü).
 > Türkçe SVG yapısal değişirse (kutu/akış/etiket), `.en.svg` de elle senkronlanmalı — kanonik kaynak Türkçe SVG.
+>
+> Aynı TR-kanonik + `.en` ayna kuralı `fable-vs-opus-harness.svg` / `.en.svg` çifti için de geçerlidir
+> (kaynak `docs/fable-comparison.md` + `docs/architecture.md`'deki üç-alt-sistem haritası; yapısal
+> değişiklikte ikisini de elle senkronla).
 
 ## Kural — skill/hook değişince
 

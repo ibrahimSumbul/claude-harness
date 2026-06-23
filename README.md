@@ -3,16 +3,20 @@
 **English** · [Türkçe](README.tr.md)
 
 **A personal orchestration harness for Claude Code** — hand-built skill / agent / workflow / hook
-layers, mirrored from a live `~/.claude/` install. Two subsystems share those layers:
+layers, mirrored from a live `~/.claude/` install. Three subsystems share those layers:
 
 - **devir** — a session-handoff (context-flush) system: it flushes the running session's live state
   to high-fidelity persistent layers (triggered at ~260k tokens, safely ahead of the ~300k
   long-context degradation zone), then lets you open a clean session and **safely resume**.
 - **adversarial-review** — multi-axis code review (correctness · security · reuse) where independent
   Opus skeptics try to *refute* each finding; only majority-survivors are reported.
+- **supervisor-review** — multi-axis *judgment* of a topic (a decision, plan, or design — not a diff):
+  the topic is split into non-overlapping slices, independent Opus evaluators judge each, and
+  disagreement is **preserved, not averaged**. The complement to adversarial-review — that one
+  collapses disagreement, this one keeps it.
 
 The full picture: [`docs/architecture.md`](docs/architecture.md). Most of this README covers **devir**
-(the mature subsystem); the review subsystem is documented in the architecture doc.
+(the mature subsystem); the two review subsystems are documented in the architecture doc.
 
 > *devir* (Turkish): the handover of a task to whoever comes next.
 
@@ -71,6 +75,12 @@ in English.
   finders (Sonnet) → independent Opus skeptics try to **refute** each finding → majority-survivors
   only → loop-until-dry. Advisory, human-in-the-loop (no auto-fix). See
   [`docs/architecture.md`](docs/architecture.md).
+- [`skills/supervisor-review/SKILL.md`](skills/supervisor-review/SKILL.md) — `/supervisor-review`:
+  a thin trigger over [`workflows/supervisor-review.js`](workflows/supervisor-review.js). Judges a
+  **topic** (decision / plan / design / strategy — not a diff): pick one axis → split into
+  non-overlapping slices → independent Opus evaluators per slice (high-stakes slices run 2×) →
+  **preserve** disagreement (never average) → synthesize one decision artifact
+  (go / go-with-conditions / no-go / needs-more-info). The judgment complement to adversarial-review.
 
 **Agents** (`agents/*.md` — subagent prompts with `name`/`model`/`tools`; model-per-role):
 
@@ -79,12 +89,18 @@ in English.
   [`reviewer-reuse.md`](agents/reviewer-reuse.md) — read-only finders (Sonnet), one per review axis.
 - [`agents/skeptic-verifier.md`](agents/skeptic-verifier.md) — adversarial verifier (Opus) that tries
   to refute a single finding; uncertainty ⇒ refuted (kills false positives).
+- [`agents/decomposer.md`](agents/decomposer.md), [`slice-evaluator.md`](agents/slice-evaluator.md) —
+  supervisor-review roles (Opus): the decomposer picks the axis and cuts the non-overlapping slices;
+  the slice-evaluator judges one slice against only its own questions (reused for both the 1× and 2× runs).
 
 **Workflows** (`workflows/*.js` — deterministic orchestration; the heavy logic lives here):
 
 - [`workflows/adversarial-review.js`](workflows/adversarial-review.js) — scope → find (×3 axes) →
   dedup → verify (×N skeptics, majority vote) → loop-until-dry → Opus synthesis. Model-per-role via
   the agent files' frontmatter.
+- [`workflows/supervisor-review.js`](workflows/supervisor-review.js) — frame (decomposer) → evaluate
+  (slice-evaluator ×depth, parallel) → reconcile (deterministic: capture divergence, never average)
+  → Opus synthesis into a decision artifact. All evaluators Opus; cost-aware (slices/depth clamp to budget).
 
 **Hooks** (L3, all defensive: every error → exit 0, never breaks the session/compaction):
 
@@ -100,9 +116,9 @@ in English.
   the `MEMORY.md` index (parallel-session race protection).
 
 **Tests:** [`hooks/devir_e2e_test.py`](hooks/devir_e2e_test.py) — end-to-end regression
-(**43/43**) driving the real hooks with simulated harness payloads in a throwaway git repo.
+(**49/49**) driving the real hooks with simulated harness payloads in a throwaway git repo.
 [`tools/check_doc_sync.py`](tools/check_doc_sync.py) guards constant-, hook-wiring-, skill-name-,
-and agent-wiring drift between code and docs (**19 checks**).
+and agent-wiring drift between code and docs (**24 checks**).
 
 ```bash
 python3 hooks/devir_e2e_test.py
@@ -110,6 +126,40 @@ python3 tools/check_doc_sync.py
 ```
 
 ## Design rationale
+
+### Opus, not Fable? You don't have to mourn it
+
+Fable 5 is a real frontier model — bigger context, higher raw capability. This harness does **not**
+replicate it and doesn't claim to. But the three things a stronger model buys you, it gives back
+through *organization* rather than raw power:
+
+![Fable 5 versus Opus plus the harness — a different path to the same three gains](docs/diagrams/fable-vs-opus-harness.en.svg)
+
+- **Past the context wall — `devir`.** Fable's 1M-token window *defers* long-context degradation; it
+  doesn't remove it (the decline around ~250–300k is structural, not a weak-model artifact). On Opus,
+  devir gets *ahead* of the wall with a high-fidelity handoff — a model-independent answer to the
+  same problem.
+- **Reviewing a change — `adversarial-review`.** A top model self-reviewing at high effort re-reads
+  the *same* draft in the *same* context, so its errors stay correlated and the pass is opaque. The
+  harness rebuilds that rigor *externally*: independent finders in fresh contexts (decorrelated error)
+  → Opus skeptics that try to refute each finding → a majority vote that *collapses* disagreement to
+  kill false positives. Inspectable at every step.
+- **Weighing a decision — `supervisor-review`.** For an open-ended judgment (a plan, a design, a
+  strategy — not a diff), one reasoning stream weighs the angles in a single context. The harness
+  convenes an actual *jury*: the topic is split into non-overlapping slices, each judged by
+  independent Opus evaluators, and where two diverge the disagreement is **preserved, not averaged** —
+  on a judgment call the divergence *is* the signal. The complement to adversarial-review: that one
+  collapses disagreement, this one keeps it.
+
+The lever is skill + hook + workflow *organization*, not model size — the same orchestrator-worker
+pattern frontier vendors recommend building *on top of* their models, here built by hand, fail-safe
+and continuity-aware.
+
+**Honestly:** this is not "Opus + harness = Fable." Orchestration buys reliability, judgment quality
+and inspectability at a real cost — multiplicative tokens (a 2× jury slice doubles again), added
+latency — and pays off only for high-stakes, decomposable, verifiable work. The reviews' gain over a
+single pass isn't eval-proven yet. Full source-cited account, including what is *not* claimed:
+[`docs/fable-comparison.md`](docs/fable-comparison.md).
 
 **Long-context degradation is a tendency, not a weak-model problem.** However capable the model,
 context efficiency tends to decline as a session grows into the ~250–300k range — a pattern
@@ -136,14 +186,14 @@ This repo is a **snapshot**; the source of truth is your working install at `~/.
 
 ```bash
 # from the repo root
-cp -R skills/.    ~/.claude/skills/      # /devir, /devir-resume, /devir-land, /adversarial-review
+cp -R skills/.    ~/.claude/skills/      # /devir(+resume/land/archive), /adversarial-review, /supervisor-review
 cp    hooks/*.py  ~/.claude/hooks/       # L3 hook net + shared libs
-cp -R agents/.    ~/.claude/agents/      # subagent prompts (adversarial-review finders + skeptic)
-cp -R workflows/. ~/.claude/workflows/   # orchestration (adversarial-review.js)
+cp -R agents/.    ~/.claude/agents/      # subagent prompts (review finders, skeptic, decomposer, slice-evaluator)
+cp -R workflows/. ~/.claude/workflows/   # orchestration (adversarial-review.js, supervisor-review.js)
 # then merge the "hooks" block of settings.example.json into ~/.claude/settings.json
 # L2 note privacy (opt-in commit): keep devir notes local by default across all projects
 echo '**/.claude/docs/devir-notes/' >> ~/.config/git/ignore   # commit a note explicitly with: git add -f
-python3 ~/.claude/hooks/devir_e2e_test.py   # verify: 43/43
+python3 ~/.claude/hooks/devir_e2e_test.py   # verify: 49/49
 ```
 
 Hook wiring lives in [`settings.example.json`](settings.example.json) (`UserPromptSubmit` /
@@ -158,8 +208,8 @@ The deep docs are currently in Turkish (the operational skills are authored in T
 is the live, working setup):
 
 - [`docs/architecture.md`](docs/architecture.md) *(Turkish)* — the umbrella: the four layers
-  (skills / agents / workflows / hooks) and how the **devir** and **adversarial-review** subsystems
-  share them.
+  (skills / agents / workflows / hooks) and how the **devir**, **adversarial-review** and
+  **supervisor-review** subsystems share them.
 - [`docs/workflow.md`](docs/workflow.md) *(Turkish)* — the full devir workflow: who triggers what and
   when, what runs in the background and why (with diagrams).
 - [`docs/fable-comparison.md`](docs/fable-comparison.md) *(Turkish)* — an honest, evidence-based
